@@ -39,17 +39,22 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	par, err := commitObj.Parent(0)
+	tree, err := commitObj.Tree()
 	if err != nil {
-		logger.Error("parent commit error:", err.Error())
+		logger.Error("commit tree error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	info := CommitInfo{Repo: repoName, Commit: commitObj}
-	patch, err := par.Patch(commitObj)
+	var parTree *object.Tree
+	if par, err := commitObj.Parent(0); err == nil {
+		parTree, _ = par.Tree()
+	}
+
+	patch, err := parTree.Patch(tree)
 	if err != nil {
-		logger.Error("commit tree error:", err.Error())
+		logger.Error("commit patch error:", err.Error())
 	} else {
 		info.Patch = patch.String()
 	}
