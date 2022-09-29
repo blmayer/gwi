@@ -1,0 +1,10 @@
+{{template "head.html"}}
+{{template "style.html"}}
+
+<h2>Repositories</h2>
+<ul>
+{{range .}}
+<li><a href="{{.}}">{{.}}</a></li>
+{{end}}
+</ul>
+

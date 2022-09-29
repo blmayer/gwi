@@ -1,0 +1,20 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html"}}
+{{template "nav.html" .Name}}
+
+<h1>{{.Name}}</h1>
+
+<i>{{.Desc}}</i>
+
+<p><b>git clone {{.CloneURL}}</b></p>
+
+{{if .Readme}}
+	<h2>Readme</h2>
+	<pre>{{printf "%s" .Readme}}</pre>
+{{end}}
+
+{{if .License}}
+	<h2>License</h2>
+	<pre>{{printf "%s" .License}}</pre>
+{{end}}

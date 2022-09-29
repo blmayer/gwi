@@ -1,0 +1,20 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html"}}
+{{template "nav.html" .Repo}}
+
+<h1>{{.Repo}}</h1>
+
+<p><b>Commited at:</b> {{.Commit.Committer.When.String}}</p>
+<p><b>Author:</b> {{.Commit.Committer.Name}} ({{.Commit.Committer.Email}})</p>
+<p><b>Message:</b></p>
+<p>{{.Commit.Message}}</p>
+
+<h3>Files</h3>
+<p>
+	Browse file at this commit:
+	<a href="/{{.Repo}}/tree/{{.Commit.TreeHash.String}}">tree</a>.
+</p>
+
+<h3>Changes</h3>
+<pre>{{.Patch}}</pre>

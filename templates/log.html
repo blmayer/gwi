@@ -1,0 +1,21 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html"}}
+{{template "nav.html" .Name}}
+
+<h1>{{.Name}}</h1>
+
+<table>
+    <tr>
+        <th>Time</th>
+        <th>Author</th>
+        <th>Message</th>
+    </tr>
+    {{range .Commits}}
+    <tr>
+        <td>{{.Author.When.String}}</td>
+        <td>{{.Author.Name}}</td>
+        <td><a href="commits/{{.Hash.String}}">{{.Message}}</a></td>
+    </tr>
+    {{end}}
+</table>
