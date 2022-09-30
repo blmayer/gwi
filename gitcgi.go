@@ -38,6 +38,8 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 		"REMOTE_USER=blmayer",
 	}
 
+	logger.Debug("using root: ", g.cgiPrefix)
+	logger.Debug("using env: ", env)
 	handler := &cgi.Handler{
 		Path:   backendCGI,
 		Root:   g.cgiPrefix,

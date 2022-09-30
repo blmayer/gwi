@@ -2,6 +2,13 @@ package logger
 
 import "fmt"
 
+const (
+	ErrorLevel = iota
+	WarningLeve
+	InfoLevel
+	DebugLevel
+)
+
 var Level int
 
 func Debug(args ...any) {

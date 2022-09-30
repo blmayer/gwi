@@ -3,10 +3,14 @@ package gwi
 import (
 	"net/http"
 	"testing"
+
+	"blmayer.dev/git/gwi/internal/logger"
 )
 
 func Test_main(t *testing.T) {
-	g, err := NewGWI("templates", "git")
+	logger.Level = logger.DebugLevel
+
+	g, err := NewGWI("templates", "/home/blmayer/repos/gwi/git", "/")
 	if err != nil {
 		t.Error(err)
 		return
