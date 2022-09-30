@@ -5,7 +5,7 @@ import (
 	"net/http/cgi"
 	"os"
 
-	"blmayer.dev/gwi/internal/logger"
+	"blmayer.dev/git/gwi/internal/logger"
 )
 
 var (
