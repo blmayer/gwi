@@ -38,11 +38,12 @@ type Gwi struct {
 	pages   *template.Template
 	root    string
 	gitRoot string
+	cgiPrefix string
 	handler *mux.Router
 }
 
-func NewGWI(root, gitRoot string) (Gwi, error) {
-	gwi := Gwi{root: root, gitRoot: gitRoot}
+func NewGWI(root, gitRoot, cgiPrefix string) (Gwi, error) {
+	gwi := Gwi{root: root, gitRoot: gitRoot, cgiPrefix: cgiPrefix}
 
 	r := mux.NewRouter()
 

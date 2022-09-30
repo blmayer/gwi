@@ -40,7 +40,7 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 
 	handler := &cgi.Handler{
 		Path:   backendCGI,
-		Root:   "/",
+		Root:   g.cgiPrefix,
 		Env:    env,
 		Stderr: os.Stderr,
 	}
