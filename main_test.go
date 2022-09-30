@@ -10,7 +10,7 @@ import (
 func Test_main(t *testing.T) {
 	logger.Level = logger.DebugLevel
 
-	g, err := NewGWI("templates", "/home/blmayer/repos/gwi/git", "/")
+	g, err := NewGWI("templates", "/home/blmayer/repos/gwi/git", "/", "localhost:8000")
 	if err != nil {
 		t.Error(err)
 		return

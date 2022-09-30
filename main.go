@@ -35,6 +35,7 @@ type RepoInfo struct {
 }
 
 type Gwi struct {
+	domain string
 	pages   *template.Template
 	root    string
 	gitRoot string
@@ -42,8 +43,8 @@ type Gwi struct {
 	handler *mux.Router
 }
 
-func NewGWI(root, gitRoot, cgiPrefix string) (Gwi, error) {
-	gwi := Gwi{root: root, gitRoot: gitRoot, cgiPrefix: cgiPrefix}
+func NewGWI(root, gitRoot, cgiPrefix, domain string) (Gwi, error) {
+	gwi := Gwi{root: root, gitRoot: gitRoot, cgiPrefix: cgiPrefix, domain: domain}
 
 	r := mux.NewRouter()
 
@@ -119,7 +120,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("read desc error:", err.Error())
 	}
 	info.Desc = string(descBytes)
-	info.CloneURL = "https://www.blmayer.dev/" + info.Name
+	info.CloneURL = "https://"+g.domain+"/" + info.Name
 
 	// files
 	head, err := repo.Head()
