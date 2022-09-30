@@ -93,7 +93,7 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	logger.Debug(g.pages)
-	if err := g.pages.ExecuteTemplate(w, "index.html", repos); err != nil {
+	if err := g.pages.ExecuteTemplate(w, "listing.html", repos); err != nil {
 		println("execute error:", err.Error())
 	}
 }
