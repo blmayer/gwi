@@ -49,7 +49,7 @@ type Gwi struct {
 	handler *mux.Router
 }
 
-func NewGWIFromConfig(config Config) (Gwi, error) {
+func NewFromConfig(config Config) (Gwi, error) {
 	gwi := Gwi{config: config}
 
 	r := mux.NewRouter()
@@ -64,7 +64,7 @@ func NewGWIFromConfig(config Config) (Gwi, error) {
 	r.PathPrefix("/{repo}/tree/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
 
 	r.HandleFunc("/{repo}/info/{service}", gwi.GitCGIHandler)
-	r.HandleFunc("/{repo}/git-receive-pack", private(gwi.GitCGIHandler))
+	r.HandleFunc("/{repo}/git-receive-pack", gwi.Private(gwi.GitCGIHandler))
 	r.HandleFunc("/{repo}/git-upload-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{repo}/objects/info", gwi.GitCGIHandler)
 	r.HandleFunc("/{repo}/HEAD", gwi.GitCGIHandler)
