@@ -1,0 +1,7 @@
+- Typeset markdown
+- Add todo section from TODO file
+- Improve diff view
+- Suport tree for other branches/commits
+- Add tags support
+- Improve theme
+- Support collaboration
