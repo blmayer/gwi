@@ -34,24 +34,23 @@ type RepoInfo struct {
 	License  []byte
 }
 
+type Config struct {
+	GitUser string
+	Domain string
+	Root    string
+	GitRoot string
+	GitCGIRoot string
+	CGIPrefix string
+}
+
 type Gwi struct {
-	domain string
+	config Config
 	pages   *template.Template
-	root    string
-	gitRoot string
-	gitCgiRoot string
-	cgiPrefix string
 	handler *mux.Router
 }
 
-func NewGWI(root, gitRoot, gitCgiRoot, cgiPrefix, domain string) (Gwi, error) {
-	gwi := Gwi{
-		root: root, 
-		gitRoot: gitRoot, 
-		gitCgiRoot: gitCgiRoot, 
-		cgiPrefix: cgiPrefix, 
-		domain: domain,
-	}
+func NewGWIFromConfig(config Config) (Gwi, error) {
+	gwi := Gwi{config: config}
 
 	r := mux.NewRouter()
 
@@ -75,7 +74,7 @@ func NewGWI(root, gitRoot, gitCgiRoot, cgiPrefix, domain string) (Gwi, error) {
 	// read templates
 	var err error
 	logger.Debug("parsing templates...")
-	gwi.pages, err = template.ParseGlob(path.Join(root, "*.html"))
+	gwi.pages, err = template.ParseGlob(path.Join(config.Root, "*.html"))
 
 	return gwi, err
 }
@@ -88,7 +87,7 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	logger.Debug("path:", r.URL.Path)
 
-	dir, err := os.ReadDir(g.gitRoot)
+	dir, err := os.ReadDir(g.config.GitRoot)
 	if err != nil {
 		logger.Debug("readDir error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -111,7 +110,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	info := RepoInfo{Commits: []*object.Commit{}}
 	info.Name = r.URL.Path[1:]
-	repoDir := path.Join(g.gitRoot, info.Name)
+	repoDir := path.Join(g.config.GitRoot, info.Name)
 	logger.Debug("repo:", info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
@@ -127,7 +126,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("read desc error:", err.Error())
 	}
 	info.Desc = string(descBytes)
-	info.CloneURL = "https://"+g.domain+"/" + info.Name
+	info.CloneURL = "https://"+g.config.Domain+"/" + info.Name
 
 	// files
 	head, err := repo.Head()
@@ -178,7 +177,7 @@ func (g *Gwi) FileHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("file:", r.URL.Path)
 	parts := strings.Split(r.URL.Path[1:], "/")
 
-	repo, err := git.PlainOpen(path.Join(g.gitRoot, parts[0]))
+	repo, err := git.PlainOpen(path.Join(g.config.GitRoot, parts[0]))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -217,7 +216,7 @@ func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 	info.Name = mux.Vars(r)["repo"]
 	logger.Debug("tree:", info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.gitRoot, info.Name))
+	repo, err := git.PlainOpen(path.Join(g.config.GitRoot, info.Name))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -275,7 +274,7 @@ func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug("getting branches for repo", info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.gitRoot, info.Name))
+	repo, err := git.PlainOpen(path.Join(g.config.GitRoot, info.Name))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
