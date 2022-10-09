@@ -25,7 +25,7 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	repoName := mux.Vars(r)["repo"]
 	logger.Debug("commit:", hash)
 
-	repo, err := git.PlainOpen(path.Join(g.gitRoot, repoName))
+	repo, err := git.PlainOpen(path.Join(g.config.Root, repoName))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -77,7 +77,7 @@ func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug("getting commits for repo", info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.gitRoot, info.Name))
+	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
