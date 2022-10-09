@@ -39,12 +39,19 @@ type Gwi struct {
 	pages   *template.Template
 	root    string
 	gitRoot string
+	gitCgiRoot string
 	cgiPrefix string
 	handler *mux.Router
 }
 
-func NewGWI(root, gitRoot, cgiPrefix, domain string) (Gwi, error) {
-	gwi := Gwi{root: root, gitRoot: gitRoot, cgiPrefix: cgiPrefix, domain: domain}
+func NewGWI(root, gitRoot, gitCgiRoot, cgiPrefix, domain string) (Gwi, error) {
+	gwi := Gwi{
+		root: root, 
+		gitRoot: gitRoot, 
+		gitCgiRoot: gitCgiRoot, 
+		cgiPrefix: cgiPrefix, 
+		domain: domain,
+	}
 
 	r := mux.NewRouter()
 

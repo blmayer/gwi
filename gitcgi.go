@@ -10,7 +10,6 @@ import (
 
 var (
 	gitUser    string
-	backendCGI = "/usr/lib/git-core/git-http-backend"
 
 	gitPass = os.Getenv("GIT_PASS")
 )
@@ -38,10 +37,10 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 		"REMOTE_USER=blmayer",
 	}
 
-	logger.Debug("using root: ", g.cgiPrefix)
+	logger.Debug("using root: ", g.cgiPrefix, "cgiPath: ", g.gitCgiRoot)
 	logger.Debug("using env: ", env)
 	handler := &cgi.Handler{
-		Path:   backendCGI,
+		Path:   g.gitCgiRoot,
 		Root:   g.cgiPrefix,
 		Env:    env,
 		Stderr: os.Stderr,
