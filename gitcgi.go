@@ -8,16 +8,23 @@ import (
 	"blmayer.dev/git/gwi/internal/logger"
 )
 
-var (
-	gitPass = os.Getenv("GIT_PASS")
-)
-
 func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := r.BasicAuth()
-		if !ok || user != g.config.User || pass != gitPass {
+		login, pass, ok := r.BasicAuth()
+		if !ok || login == "" || pass == "" {
 			w.Header().Set("WWW-Authenticate", "Basic")
 			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		user, err := g.userStore.GetByLogin(login)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		if user.Pass != pass {
+			http.Error(w, "wrong pass", http.StatusUnauthorized)
 			return
 		}
 
@@ -32,7 +39,6 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 	env := []string{
 		"GIT_PROJECT_ROOT=" + g.config.Root,
 		"GIT_HTTP_EXPORT_ALL=1",
-		"REMOTE_USER="+g.config.User,
 	}
 
 	logger.Debug("using root: ", g.config.CGIPrefix)

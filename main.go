@@ -17,6 +17,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
+type User struct {
+	Login string
+	Pass  string
+}
+
 type File struct {
 	*object.File
 	Size int64
@@ -35,7 +40,6 @@ type RepoInfo struct {
 }
 
 type Config struct {
-	User      string
 	Domain    string
 	PagesRoot string
 	Root      string
@@ -43,10 +47,15 @@ type Config struct {
 	CGIPrefix string
 }
 
+type UserStore interface {
+	GetByLogin(login string) (User, error)
+}
+
 type Gwi struct {
 	config Config
 	pages   *template.Template
 	handler *mux.Router
+	userStore   UserStore
 }
 
 func NewFromConfig(config Config) (Gwi, error) {
@@ -77,6 +86,10 @@ func NewFromConfig(config Config) (Gwi, error) {
 	gwi.pages, err = template.ParseGlob(path.Join(config.PagesRoot, "*.html"))
 
 	return gwi, err
+}
+
+func (g *Gwi) SetUserStore(store UserStore) {
+	g.userStore = store
 }
 
 func (g *Gwi) Handle() http.Handler {
