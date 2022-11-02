@@ -143,11 +143,16 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// files
 	head, err := repo.Head()
+	if err == plumbing.ErrReferenceNotFound {
+		g.pages.ExecuteTemplate(w, "empty.html", info)
+		return
+	}
 	if err != nil {
 		logger.Error("head error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	headObj, err := repo.CommitObject(head.Hash())
 	if err != nil {
 		logger.Error("head commit error:", err.Error())

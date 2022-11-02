@@ -22,7 +22,7 @@ func Test_main(t *testing.T) {
 
 	cfg := Config{
 		PagesRoot: "templates",
-		Root: "/home/blmayer/repos/gwi/git",
+		Root: "/home/blmayer/gwi/git",
 		CGIPrefix: "/",
 		Domain: "localhost:8000",
 	}

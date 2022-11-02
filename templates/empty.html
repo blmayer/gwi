@@ -1,0 +1,25 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html"}}
+{{template "nav.html" .Name}}
+
+<h1>{{.Name}}</h1>
+
+<i>{{.Desc}}</i>
+
+<p><b>git clone {{.CloneURL}}</b></p>
+
+<p>
+	This is an empty repository, to start using it
+	follow one the the instructions below.
+</p>
+<ul>
+	<li>
+		Add this remote to an existing repository:
+		<kbd>git remote add {{.CloneURL}}</kbd>
+	</li>
+	<li>
+		Clone this repo and push commits to it:
+		<kbd>git clone {{.CloneURL}}</kbd>
+	</li>
+</ul>
