@@ -14,30 +14,31 @@ import (
 )
 
 type CommitInfo struct {
-	Repo   string
+	Name   string
+	Ref    string
 	Commit *object.Commit
 	Patch  string
 }
 
 func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	hash := mux.Vars(r)["commit"]
-	repoName := mux.Vars(r)["repo"]
-	logger.Debug("commit:", hash)
+	info := CommitInfo{Name: mux.Vars(r)["repo"], Ref: mux.Vars(r)["commit"]}
+	logger.Debug("commit:", info.Ref)
 
-	repo, err := git.PlainOpen(path.Join(g.config.Root, repoName))
+	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	commitObj, err := repo.CommitObject(plumbing.NewHash(hash))
+	commitObj, err := repo.CommitObject(plumbing.NewHash(info.Ref))
 	if err != nil {
 		logger.Error("head commit error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	info.Commit = commitObj
 
 	tree, err := commitObj.Tree()
 	if err != nil {
@@ -46,7 +47,6 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info := CommitInfo{Repo: repoName, Commit: commitObj}
 	var parTree *object.Tree
 	if par, err := commitObj.Parent(0); err == nil {
 		parTree, _ = par.Tree()
@@ -68,6 +68,7 @@ func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	info := struct {
 		Name     string
+		Ref      string
 		Desc     string
 		CloneURL string
 		Commits  []*object.Commit

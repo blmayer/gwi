@@ -29,6 +29,7 @@ type File struct {
 
 type RepoInfo struct {
 	Name     string
+	Ref      string
 	Desc     string
 	CloneURL string
 	Creator  string
@@ -66,11 +67,11 @@ func NewFromConfig(config Config, store UserStore) (Gwi, error) {
 	r.Handle("/", http.HandlerFunc(gwi.RepoListHandler))
 	r.Handle("/index.html", http.HandlerFunc(gwi.RepoListHandler))
 	r.Handle("/{repo}", http.HandlerFunc(gwi.IndexHandler))
-	r.Handle("/{repo}/tree", http.HandlerFunc(gwi.TreeHandler))
 	r.Handle("/{repo}/branches", http.HandlerFunc(gwi.BranchesHandler))
 	r.Handle("/{repo}/commits", http.HandlerFunc(gwi.CommitsHandler))
 	r.Handle("/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
-	r.PathPrefix("/{repo}/tree/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
+	r.Handle("/{repo}/{ref}/tree", http.HandlerFunc(gwi.TreeHandler))
+	r.PathPrefix("/{repo}/{ref}/files/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
 
 	r.HandleFunc("/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{repo}/git-receive-pack", gwi.Private(gwi.GitCGIHandler))
@@ -152,6 +153,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	info.Ref = head.Hash().String()
 
 	headObj, err := repo.CommitObject(head.Hash())
 	if err != nil {
@@ -187,94 +189,6 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err := g.pages.ExecuteTemplate(w, "summary.html", info); err != nil {
-		logger.Error(err.Error())
-	}
-}
-
-func (g *Gwi) FileHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("file:", r.URL.Path)
-	parts := strings.Split(r.URL.Path[1:], "/")
-
-	repo, err := git.PlainOpen(path.Join(g.config.Root, parts[0]))
-	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	head, err := repo.Head()
-	if err != nil {
-		logger.Error("head error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	headObj, err := repo.CommitObject(head.Hash())
-	if err != nil {
-		logger.Error("head commit error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	logger.Debug("getting file", path.Join(parts[2:]...))
-	file, err := headObj.File(path.Join(parts[2:]...))
-	if err != nil {
-		logger.Error("head file error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	content, _ := file.Contents()
-	w.Write([]byte(content))
-}
-
-func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	info := RepoInfo{}
-	info.Name = mux.Vars(r)["repo"]
-	logger.Debug("tree:", info.Name)
-
-	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
-	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// files
-	head, err := repo.Head()
-	if err != nil {
-		logger.Error("head error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	headObj, err := repo.CommitObject(head.Hash())
-	if err != nil {
-		logger.Error("head commit error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tree, err := headObj.Tree()
-	if err != nil {
-		logger.Error("trees error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tree.Files().ForEach(func(f *object.File) error {
-		size, _ := tree.Size(f.Name)
-		info.Files = append(
-			info.Files,
-			File{
-				File: f,
-				Size: size,
-			},
-		)
-		return nil
-	})
-
-	if err := g.pages.ExecuteTemplate(w, "tree.html", info); err != nil {
 		logger.Error(err.Error())
 	}
 }
