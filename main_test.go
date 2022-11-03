@@ -7,16 +7,6 @@ import (
 	"blmayer.dev/git/gwi/internal/logger"
 )
 
-type testUserStore struct {}
-
-func (t testUserStore) GetByLogin(login string) (User, error) {
-	println("getting user from store")
-	return User{
-		Login: "test",
-		Pass: "1234",
-	}, nil
-}
-
 func Test_main(t *testing.T) {
 	logger.Level = logger.DebugLevel
 
@@ -24,16 +14,22 @@ func Test_main(t *testing.T) {
 		PagesRoot: "templates",
 		Root: "/home/blmayer/gwi/git",
 		CGIPrefix: "/",
+		CGIRoot: "/usr/lib/git-core/git-http-backend",
 		Domain: "localhost:8000",
 	}
 
-	g, err := NewFromConfig(cfg)
+	userStore, err := NewFileStorage("users.json")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	g.SetUserStore(testUserStore{})
+	g, err := NewFromConfig(cfg, userStore)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	logger.Debug("g:", g)
 	if err := http.ListenAndServe(":8080", g.Handle()); err != nil {
 		t.Error(err)
 	}

@@ -17,6 +17,7 @@ func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		logger.Debug("private g:", *g)
 		user, err := g.userStore.GetByLogin(login)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -39,6 +40,7 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 	env := []string{
 		"GIT_PROJECT_ROOT=" + g.config.Root,
 		"GIT_HTTP_EXPORT_ALL=1",
+		"REMOTE_USER=" + g.config.Domain,
 	}
 
 	logger.Debug("using root: ", g.config.CGIPrefix)

@@ -58,8 +58,8 @@ type Gwi struct {
 	userStore   UserStore
 }
 
-func NewFromConfig(config Config) (Gwi, error) {
-	gwi := Gwi{config: config}
+func NewFromConfig(config Config, store UserStore) (Gwi, error) {
+	gwi := Gwi{config: config, userStore: store}
 
 	r := mux.NewRouter()
 
