@@ -74,6 +74,7 @@ func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 		Commits  []*object.Commit
 	}{
 		Name:    mux.Vars(r)["repo"],
+		Ref:     mux.Vars(r)["ref"],
 		Commits: []*object.Commit{},
 	}
 	logger.Debug("getting commits for repo", info.Name)
@@ -86,7 +87,7 @@ func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get commits
-	logs, err := repo.Log(&git.LogOptions{})
+	logs, err := repo.Log(&git.LogOptions{From: plumbing.NewHash(info.Ref)})
 	if err != nil {
 		logger.Error("git log error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)

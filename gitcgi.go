@@ -17,15 +17,8 @@ func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		logger.Debug("private g:", *g)
-		user, err := g.userStore.GetByLogin(login)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		if user.Pass != pass {
-			http.Error(w, "wrong pass", http.StatusUnauthorized)
+		if !g.vault.Validate(login, pass) {
+			http.Error(w, "invalid login", http.StatusUnauthorized)
 			return
 		}
 

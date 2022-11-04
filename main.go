@@ -48,19 +48,19 @@ type Config struct {
 	CGIPrefix string
 }
 
-type UserStore interface {
-	GetByLogin(login string) (User, error)
+type Vault interface {
+	Validate(login, pass string) bool
 }
 
 type Gwi struct {
 	config Config
 	pages   *template.Template
 	handler *mux.Router
-	userStore   UserStore
+	vault   Vault
 }
 
-func NewFromConfig(config Config, store UserStore) (Gwi, error) {
-	gwi := Gwi{config: config, userStore: store}
+func NewFromConfig(config Config, vault Vault) (Gwi, error) {
+	gwi := Gwi{config: config, vault: vault}
 
 	r := mux.NewRouter()
 
@@ -68,8 +68,8 @@ func NewFromConfig(config Config, store UserStore) (Gwi, error) {
 	r.Handle("/index.html", http.HandlerFunc(gwi.RepoListHandler))
 	r.Handle("/{repo}", http.HandlerFunc(gwi.IndexHandler))
 	r.Handle("/{repo}/branches", http.HandlerFunc(gwi.BranchesHandler))
-	r.Handle("/{repo}/commits", http.HandlerFunc(gwi.CommitsHandler))
 	r.Handle("/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
+	r.Handle("/{repo}/{ref}/commits", http.HandlerFunc(gwi.CommitsHandler))
 	r.Handle("/{repo}/{ref}/tree", http.HandlerFunc(gwi.TreeHandler))
 	r.PathPrefix("/{repo}/{ref}/files/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
 
@@ -87,10 +87,6 @@ func NewFromConfig(config Config, store UserStore) (Gwi, error) {
 	gwi.pages, err = template.ParseGlob(path.Join(config.PagesRoot, "*.html"))
 
 	return gwi, err
-}
-
-func (g *Gwi) SetUserStore(store UserStore) {
-	g.userStore = store
 }
 
 func (g *Gwi) Handle() http.Handler {

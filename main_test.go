@@ -18,13 +18,13 @@ func Test_main(t *testing.T) {
 		Domain: "localhost:8000",
 	}
 
-	userStore, err := NewFileStorage("users.json")
+	vault, err := NewFileVault("users.json", "----xxx----")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	g, err := NewFromConfig(cfg, userStore)
+	g, err := NewFromConfig(cfg, vault)
 	if err != nil {
 		t.Error(err)
 		return
