@@ -15,6 +15,8 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"github.com/gomarkdown/markdown"
 )
 
 type User struct {
@@ -104,11 +106,15 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var repos []string
+	var repos []RepoInfo
 	for _, d := range dir {
-		if d.IsDir() && d.Name()[0] != '.' {
-			repos = append(repos, d.Name())
+		if !d.IsDir() || d.Name()[0] != '.' {
+			continue
 		}
+		r := RepoInfo{Name: d.Name()}
+		r.Desc = readDesc(r.Name)
+
+		repos = append(repos, r)
 	}
 	logger.Debug(g.pages)
 	if err := g.pages.ExecuteTemplate(w, "listing.html", repos); err != nil {
@@ -131,11 +137,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// description
-	descBytes, err := os.ReadFile(path.Join(repoDir, "description"))
-	if err != nil {
-		logger.Error("read desc error:", err.Error())
-	}
-	info.Desc = string(descBytes)
+	info.Desc = readDesc(repoDir)
 	info.CloneURL = "https://"+g.config.Domain+"/" + info.Name
 
 	// files
@@ -167,13 +169,27 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	tree.Files().ForEach(func(f *object.File) error {
 		switch strings.ToLower(f.Name) {
-		case "readme.md", "readme.txt", "readme":
+		case "readme.md":
+			if reader, err := f.Blob.Reader(); err == nil {
+				readme, _ := io.ReadAll(reader)
+				info.Readme = markdown.ToHTML(readme, nil, nil)
+			} else {
+				logger.Debug("read readme error:", err.Error())
+			}
+		case "readme.txt", "readme":
 			if reader, err := f.Blob.Reader(); err == nil {
 				info.Readme, _ = io.ReadAll(reader)
 			} else {
 				logger.Debug("read readme error:", err.Error())
 			}
-		case "license.md", "license.txt", "license":
+		case "license.md":
+			if reader, err := f.Blob.Reader(); err == nil {
+				lic, _ := io.ReadAll(reader)
+				info.License = markdown.ToHTML(lic, nil, nil)
+			} else {
+				logger.Debug("read license error:", err.Error())
+			}
+		case "license.txt", "license":
 			if reader, err := f.Blob.Reader(); err == nil {
 				info.License, _ = io.ReadAll(reader)
 			} else {
