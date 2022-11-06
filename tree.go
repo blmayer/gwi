@@ -14,12 +14,13 @@ import (
 )
 
 func (g *Gwi) FileHandler(w http.ResponseWriter, r *http.Request) {
+	user := mux.Vars(r)["user"]
 	name := mux.Vars(r)["repo"]
 	file := mux.Vars(r)["file"]
 	ref := mux.Vars(r)["ref"]
 	logger.Debug("file:", r.URL.Path, "at ref", ref)
 
-	repo, err := git.PlainOpen(path.Join(g.config.Root, name))
+	repo, err := git.PlainOpen(path.Join(g.config.Root, user, name))
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -48,12 +49,15 @@ func (g *Gwi) FileHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	info := RepoInfo{}
-	info.Name = mux.Vars(r)["repo"]
-	info.Ref = mux.Vars(r)["ref"]
+	info := RepoInfo{
+		Creator: mux.Vars(r)["user"],
+		Name: mux.Vars(r)["repo"],
+		Ref: mux.Vars(r)["ref"],
+	}
 	logger.Debug("tree:", info.Name)
+	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
+	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)

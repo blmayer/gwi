@@ -14,6 +14,7 @@ import (
 )
 
 type CommitInfo struct {
+	RepoOwner string
 	Name   string
 	Ref    string
 	Commit *object.Commit
@@ -21,11 +22,15 @@ type CommitInfo struct {
 }
 
 func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	info := CommitInfo{Name: mux.Vars(r)["repo"], Ref: mux.Vars(r)["commit"]}
+	info := CommitInfo{
+		Name: mux.Vars(r)["repo"],
+		RepoOwner: mux.Vars(r)["user"],
+		Ref: mux.Vars(r)["commit"],
+	}
 	logger.Debug("commit:", info.Ref)
+	repoDir := path.Join(g.config.Root, info.RepoOwner, info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
+	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -59,6 +64,7 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		info.Patch = patch.String()
 	}
 
+	w.Header().Set("Content-Type", "text/html")
 	if err := g.pages.ExecuteTemplate(w, "commit.html", info); err != nil {
 		logger.Error(err.Error())
 	}
@@ -66,20 +72,16 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	info := struct {
-		Name     string
-		Ref      string
-		Desc     string
-		CloneURL string
-		Commits  []*object.Commit
-	}{
+	info := RepoInfo{
 		Name:    mux.Vars(r)["repo"],
+		Creator: mux.Vars(r)["user"],
 		Ref:     mux.Vars(r)["ref"],
 		Commits: []*object.Commit{},
 	}
 	logger.Debug("getting commits for repo", info.Name)
+	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
+	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)

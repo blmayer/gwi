@@ -1,0 +1,10 @@
+{{template "head.html"}}
+{{template "style.html"}}
+
+<h2>Users</h2>
+<ul>
+{{range .}}
+<li><a href="{{.}}/index.html">{{.}}</a></li>
+{{end}}
+</ul>
+

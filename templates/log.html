@@ -1,6 +1,6 @@
 {{template "style.html"}}
 {{template "head.html"}}
-{{template "header.html"}}
+{{template "header.html" .Creator}}
 {{template "nav.html" .}}
 
 <h1>{{.Name}}</h1>
@@ -15,7 +15,7 @@
     <tr>
         <td>{{.Author.When.String}}</td>
         <td>{{.Author.Name}}</td>
-	<td><a href="/{{$.Name}}/commits/{{.Hash.String}}">{{.Message}}</a></td>
+	<td><a href="/{{$.Creator}}/{{$.Name}}/commits/{{.Hash.String}}">{{.Message}}</a></td>
     </tr>
     {{end}}
 </table>

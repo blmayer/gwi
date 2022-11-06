@@ -38,6 +38,7 @@ type RepoInfo struct {
 	Files    []File
 	Owners   []string
 	Commits  []*object.Commit
+	Branches []*plumbing.Reference
 	Readme   []byte
 	License  []byte
 }
@@ -66,20 +67,21 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	r := mux.NewRouter()
 
-	r.Handle("/", http.HandlerFunc(gwi.RepoListHandler))
-	r.Handle("/index.html", http.HandlerFunc(gwi.RepoListHandler))
-	r.Handle("/{repo}", http.HandlerFunc(gwi.IndexHandler))
-	r.Handle("/{repo}/branches", http.HandlerFunc(gwi.BranchesHandler))
-	r.Handle("/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
-	r.Handle("/{repo}/{ref}/commits", http.HandlerFunc(gwi.CommitsHandler))
-	r.Handle("/{repo}/{ref}/tree", http.HandlerFunc(gwi.TreeHandler))
-	r.PathPrefix("/{repo}/{ref}/files/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
+	r.Handle("/", http.HandlerFunc(gwi.UserListHandler))
+	r.Handle("/index.html", http.HandlerFunc(gwi.UserListHandler))
+	r.Handle("/{user}/index.html", http.HandlerFunc(gwi.RepoListHandler))
+	r.Handle("/{user}/{repo}", http.HandlerFunc(gwi.IndexHandler))
+	r.Handle("/{user}/{repo}/branches", http.HandlerFunc(gwi.BranchesHandler))
+	r.Handle("/{user}/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
+	r.Handle("/{user}/{repo}/{ref}/commits", http.HandlerFunc(gwi.CommitsHandler))
+	r.Handle("/{user}/{repo}/{ref}/tree", http.HandlerFunc(gwi.TreeHandler))
+	r.PathPrefix("/{user}/{repo}/{ref}/files/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
 
-	r.HandleFunc("/{repo}/info/{service}", gwi.GitCGIHandler)
-	r.HandleFunc("/{repo}/git-receive-pack", gwi.Private(gwi.GitCGIHandler))
-	r.HandleFunc("/{repo}/git-upload-pack", gwi.GitCGIHandler)
-	r.HandleFunc("/{repo}/objects/info", gwi.GitCGIHandler)
-	r.HandleFunc("/{repo}/HEAD", gwi.GitCGIHandler)
+	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
+	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.Private(gwi.GitCGIHandler))
+	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.GitCGIHandler)
+	r.HandleFunc("/{user}/{repo}/objects/info", gwi.GitCGIHandler)
+	r.HandleFunc("/{user}/{repo}/HEAD", gwi.GitCGIHandler)
 
 	gwi.handler = r
 
@@ -95,8 +97,7 @@ func (g *Gwi) Handle() http.Handler {
 	return g.handler
 }
 
-func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
+func (g *Gwi) UserListHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("path:", r.URL.Path)
 
 	dir, err := os.ReadDir(g.config.Root)
@@ -106,9 +107,37 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var users []string
+	for _, d := range dir {
+		if !d.IsDir() {
+			continue
+		}
+
+		users = append(users, d.Name())
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	if err := g.pages.ExecuteTemplate(w, "users.html", users); err != nil {
+		println("execute error:", err.Error())
+	}
+}
+
+func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	logger.Debug("path:", r.URL.Path)
+	user := mux.Vars(r)["user"]
+	userDir := path.Join(g.config.Root, user)
+
+	dir, err := os.ReadDir(userDir)
+	if err != nil {
+		logger.Debug("readDir error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	var repos []RepoInfo
 	for _, d := range dir {
-		if !d.IsDir() || d.Name()[0] != '.' {
+		if !d.IsDir() {
 			continue
 		}
 		r := RepoInfo{Name: d.Name()}
@@ -116,17 +145,20 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 
 		repos = append(repos, r)
 	}
-	logger.Debug(g.pages)
-	if err := g.pages.ExecuteTemplate(w, "listing.html", repos); err != nil {
+
+	if err := g.pages.ExecuteTemplate(w, "repos.html", repos); err != nil {
 		println("execute error:", err.Error())
 	}
 }
 
 func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	info := RepoInfo{Commits: []*object.Commit{}}
-	info.Name = r.URL.Path[1:]
-	repoDir := path.Join(g.config.Root, info.Name)
+	info := RepoInfo{
+		Commits: []*object.Commit{},
+		Creator: mux.Vars(r)["user"],
+		Name: mux.Vars(r)["repo"],
+	}
+	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	logger.Debug("repo:", info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
@@ -206,24 +238,32 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	info := struct {
-		Name     string
-		Desc     string
-		CloneURL string
-		Branches []*plumbing.Reference
-	}{
+	info := RepoInfo {
 		Name:     mux.Vars(r)["repo"],
+		Creator:  mux.Vars(r)["user"],
 		Branches: []*plumbing.Reference{},
 	}
+	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	logger.Debug("getting branches for repo", info.Name)
 
-	repo, err := git.PlainOpen(path.Join(g.config.Root, info.Name))
+	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	head, err := repo.Head()
+	if err == plumbing.ErrReferenceNotFound {
+		g.pages.ExecuteTemplate(w, "empty.html", info)
+		return
+	}
+	if err != nil {
+		logger.Error("head error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	info.Ref = head.Hash().String()
 
 	// branches
 	branches, err := repo.Branches()
@@ -238,6 +278,7 @@ func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 
+	w.Header().Set("Content-Type", "text/html")
 	if err := g.pages.ExecuteTemplate(w, "branches.html", info); err != nil {
 		logger.Error(err.Error())
 	}
