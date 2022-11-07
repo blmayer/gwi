@@ -78,7 +78,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	r.PathPrefix("/{user}/{repo}/{ref}/files/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
-	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.Private(gwi.GitCGIHandler))
+	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/objects/info", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/HEAD", gwi.GitCGIHandler)

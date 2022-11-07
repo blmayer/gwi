@@ -4,8 +4,11 @@ import (
 	"net/http"
 	"net/http/cgi"
 	"os"
+	"strings"
 
 	"blmayer.dev/git/gwi/internal/logger"
+
+	"github.com/gorilla/mux"
 )
 
 func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
@@ -30,10 +33,31 @@ func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
 func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("CGI handling", r.RequestURI)
 
+	login, pass, ok := r.BasicAuth()
+	user := login
+	if strings.Contains(r.RequestURI, "git-receive-pack") {
+		if !ok || login == "" || pass == "" {
+			w.Header().Set("WWW-Authenticate", "Basic")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if !g.vault.Validate(login, pass) {
+			http.Error(w, "invalid login", http.StatusUnauthorized)
+			return
+		}
+
+		logger.Info("successful authentication")
+
+		if mux.Vars(r)["user"] != login {
+			http.Error(w, "invalid repo", http.StatusUnauthorized)
+			return
+		}
+	}
 	env := []string{
 		"GIT_PROJECT_ROOT=" + g.config.Root,
 		"GIT_HTTP_EXPORT_ALL=1",
-		"REMOTE_USER=" + g.config.Domain,
+		"REMOTE_USER=" + user,
 	}
 
 	logger.Debug("using root: ", g.config.CGIPrefix)
