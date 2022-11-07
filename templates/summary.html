@@ -11,10 +11,10 @@
 
 {{if .Readme}}
 	<h2>Readme</h2>
-	<pre>{{printf "%s" .Readme}}</pre>
+	{{.Readme}}
 {{end}}
 
 {{if .License}}
 	<h2>License</h2>
-	<pre>{{printf "%s" .License}}</pre>
+	{{.License}}
 {{end}}

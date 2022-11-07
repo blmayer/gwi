@@ -39,8 +39,8 @@ type RepoInfo struct {
 	Owners   []string
 	Commits  []*object.Commit
 	Branches []*plumbing.Reference
-	Readme   []byte
-	License  []byte
+	Readme   template.HTML
+	License  template.HTML
 }
 
 type Config struct {
@@ -141,7 +141,7 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		r := RepoInfo{Name: d.Name()}
-		r.Desc = readDesc(r.Name)
+		r.Desc = readDesc(path.Join(userDir, r.Name))
 
 		repos = append(repos, r)
 	}
@@ -204,26 +204,36 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 		case "readme.md":
 			if reader, err := f.Blob.Reader(); err == nil {
 				readme, _ := io.ReadAll(reader)
-				info.Readme = markdown.ToHTML(readme, nil, nil)
+				info.Readme = template.HTML(
+					"<article>"+string(markdown.ToHTML(readme, nil, nil))+"</article>",
+				)
 			} else {
 				logger.Debug("read readme error:", err.Error())
 			}
 		case "readme.txt", "readme":
 			if reader, err := f.Blob.Reader(); err == nil {
-				info.Readme, _ = io.ReadAll(reader)
+				readme, _ := io.ReadAll(reader)
+				info.Readme = template.HTML(
+					"<pre>" + string(readme) + "</pre>",
+				)
 			} else {
 				logger.Debug("read readme error:", err.Error())
 			}
 		case "license.md":
 			if reader, err := f.Blob.Reader(); err == nil {
 				lic, _ := io.ReadAll(reader)
-				info.License = markdown.ToHTML(lic, nil, nil)
+				info.License = template.HTML(
+					"<article>"+string(markdown.ToHTML(lic, nil, nil))+"</article>",
+				)
 			} else {
 				logger.Debug("read license error:", err.Error())
 			}
 		case "license.txt", "license":
 			if reader, err := f.Blob.Reader(); err == nil {
-				info.License, _ = io.ReadAll(reader)
+				license, _ := io.ReadAll(reader)
+				info.License = template.HTML(
+					"<pre>" + string(license) + "</pre>",
+				)
 			} else {
 				logger.Debug("read license error:", err.Error())
 			}
