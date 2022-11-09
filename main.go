@@ -56,7 +56,7 @@ type Vault interface {
 }
 
 type Gwi struct {
-	config Config
+	config  Config
 	pages   *template.Template
 	handler *mux.Router
 	vault   Vault
@@ -75,7 +75,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	r.Handle("/{user}/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
 	r.Handle("/{user}/{repo}/{ref}/commits", http.HandlerFunc(gwi.CommitsHandler))
 	r.Handle("/{user}/{repo}/{ref}/tree", http.HandlerFunc(gwi.TreeHandler))
-	r.PathPrefix("/{user}/{repo}/{ref}/files/{file}").Handler(http.HandlerFunc(gwi.FileHandler))
+	r.Handle("/{user}/{repo}/{ref}/files/{file:.*}", http.HandlerFunc(gwi.FileHandler))
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
@@ -156,7 +156,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	info := RepoInfo{
 		Commits: []*object.Commit{},
 		Creator: mux.Vars(r)["user"],
-		Name: mux.Vars(r)["repo"],
+		Name:    mux.Vars(r)["repo"],
 	}
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	logger.Debug("repo:", info.Name)
@@ -170,7 +170,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// description
 	info.Desc = readDesc(repoDir)
-	info.CloneURL = "https://"+g.config.Domain+"/" + info.Name
+	info.CloneURL = "https://" + g.config.Domain + "/" + info.Name
 
 	// files
 	head, err := repo.Head()
@@ -205,7 +205,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 			if reader, err := f.Blob.Reader(); err == nil {
 				readme, _ := io.ReadAll(reader)
 				info.Readme = template.HTML(
-					"<article>"+string(markdown.ToHTML(readme, nil, nil))+"</article>",
+					"<article>" + string(markdown.ToHTML(readme, nil, nil)) + "</article>",
 				)
 			} else {
 				logger.Debug("read readme error:", err.Error())
@@ -223,7 +223,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 			if reader, err := f.Blob.Reader(); err == nil {
 				lic, _ := io.ReadAll(reader)
 				info.License = template.HTML(
-					"<article>"+string(markdown.ToHTML(lic, nil, nil))+"</article>",
+					"<article>" + string(markdown.ToHTML(lic, nil, nil)) + "</article>",
 				)
 			} else {
 				logger.Debug("read license error:", err.Error())
@@ -248,11 +248,11 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
-	info := RepoInfo {
+	info := RepoInfo{
 		Name:     mux.Vars(r)["repo"],
 		Creator:  mux.Vars(r)["user"],
 		Branches: []*plumbing.Reference{},
-		CloneURL: "https://"+g.config.Domain+"/" + mux.Vars(r)["repo"],
+		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	logger.Debug("getting branches for repo", info.Name)
