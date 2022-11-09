@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"path"
 
-	"blmayer.dev/git/gwi/internal/logger"
+	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/gorilla/mux"
 

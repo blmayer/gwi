@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	"blmayer.dev/git/gwi/internal/logger"
+	"blmayer.dev/x/gwi/internal/logger"
 )
 
 func readDesc(repo string) string {

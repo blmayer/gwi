@@ -1,12 +1,12 @@
 package gwi
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"crypto/sha256"
 	"os"
 
-	"blmayer.dev/git/gwi/internal/logger"
+	"blmayer.dev/x/gwi/internal/logger"
 )
 
 type FileVault struct {
@@ -42,4 +42,3 @@ func (f FileVault) Validate(login, pass string) bool {
 	}
 	return false
 }
-

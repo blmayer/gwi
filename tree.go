@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"path"
 
-	"blmayer.dev/git/gwi/internal/logger"
+	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/gorilla/mux"
 
@@ -50,10 +50,10 @@ func (g *Gwi) FileHandler(w http.ResponseWriter, r *http.Request) {
 func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	info := RepoInfo{
-		Creator: mux.Vars(r)["user"],
-		Name: mux.Vars(r)["repo"],
-		Ref: mux.Vars(r)["ref"],
-		CloneURL: "https://"+g.config.Domain+"/" + mux.Vars(r)["repo"],
+		Creator:  mux.Vars(r)["user"],
+		Name:     mux.Vars(r)["repo"],
+		Ref:      mux.Vars(r)["ref"],
+		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	logger.Debug("tree:", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
@@ -107,4 +107,3 @@ func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error(err.Error())
 	}
 }
-
