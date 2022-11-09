@@ -14,23 +14,23 @@ import (
 )
 
 type CommitInfo struct {
-	RepoOwner string
-	Name   string
+	Creator  string
+	Name     string
 	CloneURL string
-	Ref    string
-	Commit *object.Commit
-	Patch  string
+	Ref      string
+	Commit   *object.Commit
+	Patch    string
 }
 
 func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	info := CommitInfo{
-		Name: mux.Vars(r)["repo"],
-		RepoOwner: mux.Vars(r)["user"],
-		Ref: mux.Vars(r)["commit"],
-		CloneURL: "https://"+g.config.Domain+"/" + mux.Vars(r)["repo"],
+		Name:     mux.Vars(r)["repo"],
+		Creator:  mux.Vars(r)["user"],
+		Ref:      mux.Vars(r)["commit"],
+		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	logger.Debug("commit:", info.Ref)
-	repoDir := path.Join(g.config.Root, info.RepoOwner, info.Name)
+	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
@@ -75,11 +75,11 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	info := RepoInfo{
-		Name:    mux.Vars(r)["repo"],
-		Creator: mux.Vars(r)["user"],
-		Ref:     mux.Vars(r)["ref"],
-		Commits: []*object.Commit{},
-		CloneURL: "https://"+g.config.Domain+"/" + mux.Vars(r)["repo"],
+		Name:     mux.Vars(r)["repo"],
+		Creator:  mux.Vars(r)["user"],
+		Ref:      mux.Vars(r)["ref"],
+		Commits:  []*object.Commit{},
+		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	logger.Debug("getting commits for repo", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
