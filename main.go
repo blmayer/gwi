@@ -252,6 +252,7 @@ func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
 		Name:     mux.Vars(r)["repo"],
 		Creator:  mux.Vars(r)["user"],
 		Branches: []*plumbing.Reference{},
+		CloneURL: "https://"+g.config.Domain+"/" + mux.Vars(r)["repo"],
 	}
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	logger.Debug("getting branches for repo", info.Name)
