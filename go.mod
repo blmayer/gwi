@@ -1,4 +1,4 @@
-module blmayer.dev/git/gwi
+module blmayer.dev/x/gwi
 
 go 1.19
 
