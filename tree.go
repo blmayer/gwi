@@ -57,6 +57,7 @@ func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug("tree:", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
+	info.Desc = readDesc(repoDir)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {

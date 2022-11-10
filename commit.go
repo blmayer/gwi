@@ -16,6 +16,7 @@ import (
 type CommitInfo struct {
 	Creator  string
 	Name     string
+	Desc     string
 	CloneURL string
 	Ref      string
 	Commit   *object.Commit
@@ -31,6 +32,7 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug("commit:", info.Ref)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
+	info.Desc = readDesc(repoDir)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
@@ -83,6 +85,7 @@ func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug("getting commits for repo", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
+	info.Desc = readDesc(repoDir)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
