@@ -70,7 +70,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	r.Handle("/", http.HandlerFunc(gwi.UserListHandler))
 	r.Handle("/index.html", http.HandlerFunc(gwi.UserListHandler))
 	r.Handle("/{user}/index.html", http.HandlerFunc(gwi.RepoListHandler))
-	r.Handle("/{user}/{repo}", http.HandlerFunc(gwi.IndexHandler))
+	r.Handle("/{user}/{repo}", http.HandlerFunc(gwi.SummaryHandler))
 	r.Handle("/{user}/{repo}/branches", http.HandlerFunc(gwi.BranchesHandler))
 	r.Handle("/{user}/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
 	r.Handle("/{user}/{repo}/{ref}/commits", http.HandlerFunc(gwi.CommitsHandler))
@@ -151,7 +151,7 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
+func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	info := RepoInfo{
 		Commits: []*object.Commit{},
@@ -170,7 +170,7 @@ func (g *Gwi) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// description
 	info.Desc = readDesc(repoDir)
-	info.CloneURL = "https://" + g.config.Domain + "/" + info.Name
+	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
 
 	// files
 	head, err := repo.Head()
