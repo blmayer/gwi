@@ -53,11 +53,11 @@ func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 		Creator:  mux.Vars(r)["user"],
 		Name:     mux.Vars(r)["repo"],
 		Ref:      mux.Vars(r)["ref"],
-		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	logger.Debug("tree:", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	info.Desc = readDesc(repoDir)
+	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {

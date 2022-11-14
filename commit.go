@@ -28,11 +28,11 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		Name:     mux.Vars(r)["repo"],
 		Creator:  mux.Vars(r)["user"],
 		Ref:      mux.Vars(r)["commit"],
-		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	logger.Debug("commit:", info.Ref)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	info.Desc = readDesc(repoDir)
+	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
@@ -81,11 +81,11 @@ func (g *Gwi) CommitsHandler(w http.ResponseWriter, r *http.Request) {
 		Creator:  mux.Vars(r)["user"],
 		Ref:      mux.Vars(r)["ref"],
 		Commits:  []*object.Commit{},
-		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
 	}
 	logger.Debug("getting commits for repo", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	info.Desc = readDesc(repoDir)
+	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {

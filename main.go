@@ -257,6 +257,7 @@ func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
 	logger.Debug("getting branches for repo", info.Name)
 	info.Desc = readDesc(repoDir)
+	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
