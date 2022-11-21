@@ -5,7 +5,22 @@
 
 <h1>{{.Name}}</h1>
 
-<i>{{.Desc}}</i>
+<details>
+	<summary>
+		Browsing at {{if .RefName}}
+		{{.RefName}}
+		{{else}}
+		{{.Ref}}
+		{{end}}
+	</summary>
+	<ul>
+		{{range .Branches}}
+		<li><a href={{.Hash.String}}>{{.Name}}</a></li>
+		{{end}}
+	</ul>
+</details>
+
+<p><i>{{.Desc}}</i></p>
 
 <p><b>git clone {{.CloneURL}}</b></p>
 

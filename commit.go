@@ -66,6 +66,10 @@ func (g *Gwi) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("commit patch error:", err.Error())
 	} else {
 		info.Patch = patch.String()
+		for _, p := range patch.FilePatches() {
+			logger.Info(p.Chunks())
+		}
+		println(info.Patch)
 	}
 
 	w.Header().Set("Content-Type", "text/html")

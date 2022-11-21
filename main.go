@@ -32,6 +32,7 @@ type File struct {
 type RepoInfo struct {
 	Name     string
 	Ref      string
+	RefName  string
 	Desc     string
 	CloneURL string
 	Creator  string
@@ -71,7 +72,6 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	r.Handle("/index.html", http.HandlerFunc(gwi.UserListHandler))
 	r.Handle("/{user}/index.html", http.HandlerFunc(gwi.RepoListHandler))
 	r.Handle("/{user}/{repo}", http.HandlerFunc(gwi.SummaryHandler))
-	r.Handle("/{user}/{repo}/branches", http.HandlerFunc(gwi.BranchesHandler))
 	r.Handle("/{user}/{repo}/commits/{commit}", http.HandlerFunc(gwi.CommitHandler))
 	r.Handle("/{user}/{repo}/{ref}/commits", http.HandlerFunc(gwi.CommitsHandler))
 	r.Handle("/{user}/{repo}/{ref}/tree", http.HandlerFunc(gwi.TreeHandler))
@@ -172,6 +172,19 @@ func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	info.Desc = readDesc(repoDir)
 	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
 
+	// branches
+	branches, err := repo.Branches()
+	if err != nil {
+		logger.Error("branches error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	branches.ForEach(func(b *plumbing.Reference) error {
+		info.Branches = append(info.Branches, b)
+		return nil
+	})
+
 	// files
 	head, err := repo.Head()
 	if err == plumbing.ErrReferenceNotFound {
@@ -184,6 +197,7 @@ func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	info.Ref = head.Hash().String()
+	info.RefName = head.Name().String()
 
 	headObj, err := repo.CommitObject(head.Hash())
 	if err != nil {
@@ -247,52 +261,3 @@ func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g *Gwi) BranchesHandler(w http.ResponseWriter, r *http.Request) {
-	info := RepoInfo{
-		Name:     mux.Vars(r)["repo"],
-		Creator:  mux.Vars(r)["user"],
-		Branches: []*plumbing.Reference{},
-		CloneURL: "https://" + g.config.Domain + "/" + mux.Vars(r)["repo"],
-	}
-	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
-	logger.Debug("getting branches for repo", info.Name)
-	info.Desc = readDesc(repoDir)
-	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
-
-	repo, err := git.PlainOpen(repoDir)
-	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	head, err := repo.Head()
-	if err == plumbing.ErrReferenceNotFound {
-		g.pages.ExecuteTemplate(w, "empty.html", info)
-		return
-	}
-	if err != nil {
-		logger.Error("head error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	info.Ref = head.Hash().String()
-
-	// branches
-	branches, err := repo.Branches()
-	if err != nil {
-		logger.Error("branches error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	branches.ForEach(func(b *plumbing.Reference) error {
-		info.Branches = append(info.Branches, b)
-		return nil
-	})
-
-	w.Header().Set("Content-Type", "text/html")
-	if err := g.pages.ExecuteTemplate(w, "branches.html", info); err != nil {
-		logger.Error(err.Error())
-	}
-}
