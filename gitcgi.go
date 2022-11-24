@@ -5,8 +5,11 @@ import (
 	"net/http/cgi"
 	"os"
 	"strings"
+	"path"
 
 	"blmayer.dev/x/gwi/internal/logger"
+
+	"github.com/libgit2/git2go/v34"
 
 	"github.com/gorilla/mux"
 )
@@ -34,7 +37,8 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("CGI handling", r.RequestURI)
 
 	login, pass, ok := r.BasicAuth()
-	user := login
+	user := mux.Vars(r)["user"]
+	repo := mux.Vars(r)["repo"]
 	if strings.Contains(r.RequestURI, "git-receive-pack") {
 		if !ok || login == "" || pass == "" {
 			w.Header().Set("WWW-Authenticate", "Basic")
@@ -49,15 +53,28 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 
 		logger.Info("successful authentication")
 
-		if mux.Vars(r)["user"] != login {
+		if user != login {
 			http.Error(w, "invalid repo", http.StatusUnauthorized)
 			return
 		}
 	}
+
+	// create repo if it doesn't exists
+	repoDir := path.Join(g.config.Root, user, repo)
+	if _, err := os.Stat(repoDir); err != nil {
+		logger.Info("repo stat", err.Error(), "initializing repo")
+
+		os.Mkdir(repoDir, os.ModeDir|0o700)
+		if _, err := git.InitRepository(repoDir, true); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	env := []string{
 		"GIT_PROJECT_ROOT=" + g.config.Root,
 		"GIT_HTTP_EXPORT_ALL=1",
-		"REMOTE_USER=" + user,
+		"REMOTE_USER=" + login,
 	}
 
 	logger.Debug("using root: ", g.config.CGIPrefix)

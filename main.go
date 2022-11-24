@@ -168,9 +168,8 @@ func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// description
-	info.Desc = readDesc(repoDir)
 	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
+	logger.Info(info)
 
 	// branches
 	branches, err := repo.Branches()
@@ -188,6 +187,7 @@ func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	// files
 	head, err := repo.Head()
 	if err == plumbing.ErrReferenceNotFound {
+		logger.Error("head error:", err.Error())
 		g.pages.ExecuteTemplate(w, "empty.html", info)
 		return
 	}
