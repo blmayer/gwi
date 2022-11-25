@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"net/http/cgi"
 	"os"
-	"strings"
 	"path"
+	"strings"
 
 	"blmayer.dev/x/gwi/internal/logger"
 
-	"github.com/libgit2/git2go/v34"
+	"github.com/go-git/go-git/v5"
 
 	"github.com/gorilla/mux"
 )
@@ -65,7 +65,7 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Info("repo stat", err.Error(), "initializing repo")
 
 		os.Mkdir(repoDir, os.ModeDir|0o700)
-		if _, err := git.InitRepository(repoDir, true); err != nil {
+		if _, err := git.PlainInit(repoDir, true); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
