@@ -7,15 +7,11 @@
 
 <details>
 	<summary>
-		Browsing at {{if .RefName}}
-		{{.RefName}}
-		{{else}}
-		{{.Ref}}
-		{{end}}
+		Browsing at {{.RefName}}.
 	</summary>
 	<ul>
 		{{range .Branches}}
-		<li><a href={{.Hash.String}}>{{.Name}}</a></li>
+		<li><a href={{.Hash.String}}>{{.Name.Short}}</a></li>
 		{{end}}
 	</ul>
 </details>
@@ -23,6 +19,13 @@
 <p><i>{{.Desc}}</i></p>
 
 <p><b>git clone {{.CloneURL}}</b></p>
+<hr>
+
+<ul>
+{{range commits .Ref}}
+<li>{{.Author.Name}}</li>
+{{end}}
+</ul>
 
 {{if .Readme}}
 	<h2>Readme</h2>

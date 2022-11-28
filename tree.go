@@ -47,12 +47,32 @@ func (g *Gwi) FileHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(content))
 }
 
+func (g *Gwi) file(repo *git.Repository) func(ref plumbing.Hash, name string) string {
+	return func(ref plumbing.Hash, name string) string {
+
+		logger.Debug("getting commit for ref", ref.String())
+		commit, err := repo.CommitObject(ref)
+		if err != nil {
+			logger.Error("commit error:", err.Error())
+			return nil
+		}
+
+		logger.Debug("getting file", file)
+		fileObj, err := commit.File(file)
+		if err != nil {
+			logger.Error("head file error:", err.Error())
+			return ""
+		}
+		return fileObject.Contents()
+	}
+}
+
 func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	info := RepoInfo{
-		Creator:  mux.Vars(r)["user"],
-		Name:     mux.Vars(r)["repo"],
-		Ref:      mux.Vars(r)["ref"],
+		Creator: mux.Vars(r)["user"],
+		Name:    mux.Vars(r)["repo"],
+		Ref:     plumbing.NewHash(mux.Vars(r)["ref"]),
 	}
 	logger.Debug("tree:", info.Name)
 	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
@@ -67,25 +87,14 @@ func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// files
-	if info.Ref == "" {
-		head, err := repo.Head()
-		if err != nil {
-			logger.Error("head error:", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		info.Ref = head.Hash().String()
-	}
-	logger.Debug("getting tree for ref", info.Ref)
-
-	commitObj, err := repo.CommitObject(plumbing.NewHash(info.Ref))
+	logger.Debug("getting tree for ref", info.Ref.String())
+	commit, err := repo.CommitObject(info.Ref)
 	if err != nil {
-		logger.Error("commit object error:", err.Error())
+		logger.Error("commit error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	tree, err := commitObj.Tree()
+	tree, err := commit.Tree()
 	if err != nil {
 		logger.Error("trees error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -106,5 +115,37 @@ func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := g.pages.ExecuteTemplate(w, "tree.html", info); err != nil {
 		logger.Error(err.Error())
+	}
+}
+
+func (g *Gwi) tree(repo *git.Repository) func(ref plumbing.Hash) []File {
+	return func(ref plumbing.Hash) []File {
+
+		// files
+		logger.Debug("getting commit for ref", ref.String())
+		commit, err := repo.CommitObject(ref)
+		if err != nil {
+			logger.Error("commit error:", err.Error())
+			return nil
+		}
+		tree, err := commit.Tree()
+		if err != nil {
+			logger.Error("trees error:", err.Error())
+			return nil
+		}
+
+		var files []File
+		tree.Files().ForEach(func(f *object.File) error {
+			size, _ := tree.Size(f.Name)
+			files = append(
+				files,
+				File{
+					File: f,
+					Size: size,
+				},
+			)
+			return nil
+		})
+		return files
 	}
 }
