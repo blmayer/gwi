@@ -1,0 +1,7 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html"}}
+{{template "nav.html" .}}
+
+<h1>{{.Args}}</h1>
+<pre>{{file .Ref .Args}}</pre>

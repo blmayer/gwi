@@ -2,11 +2,9 @@ package gwi
 
 import (
 	"html/template"
-	"io"
 	"net/http"
 	"os"
 	"path"
-	"strings"
 
 	"blmayer.dev/x/gwi/internal/logger"
 
@@ -58,11 +56,13 @@ type Gwi struct {
 }
 
 var funcMapTempl = map[string]any{
+	"users":    func() []string { return nil },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
-	"file":     func(ref plumbing.Hash, name string) string { return nil },
+	"file":     func(ref plumbing.Hash, name string) string { return "" },
+	"markdown": func(in string) template.HTML { return template.HTML(markdown.ToHTML([]byte(in), nil, nil)) },
 }
 
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
@@ -74,8 +74,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	r.Handle("/index.html", http.HandlerFunc(gwi.UserListHandler))
 	r.Handle("/{user}/index.html", http.HandlerFunc(gwi.RepoListHandler))
 
-	r.Handle("/{user}/{repo}/{op}", http.HandlerFunc(gwi.MainHandler))
-	r.Handle("/{user}/{repo}/{ref}/{op}/{arg:.*}", http.HandlerFunc(gwi.MainHandler))
+	r.Handle("/{user}/{repo}/{op}/{ref:.*}", http.HandlerFunc(gwi.MainHandler))
+	r.Handle("/{user}/{repo}/{op}/{ref}/{args:.*}", http.HandlerFunc(gwi.MainHandler))
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
@@ -107,7 +107,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		Ref:  plumbing.NewHash(vars["ref"]),
 		Args: vars["args"],
 	}
-	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
+	repoDir := path.Join(g.config.Root, info.User, info.Repo)
 	info.CloneURL = "https://" + path.Join(g.config.Domain, info.User, info.Repo)
 
 	repo, err := git.PlainOpen(repoDir)
@@ -124,6 +124,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	funcMap := map[string]any{
+		"users": g.users(),
 		"branches": g.branches(repo),
 		"commits":  g.commits(repo),
 		"commit":   g.commit(repo),
@@ -135,6 +136,28 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	if err := pages.ExecuteTemplate(w, vars["op"]+".html", info); err != nil {
 		println("execute error:", err.Error())
+	}
+}
+
+func (g *Gwi) users() func() []string {
+	return func() []string {
+		logger.Debug("getting users")
+		dir, err := os.ReadDir(g.config.Root)
+		if err != nil {
+			logger.Debug("readDir error:", err.Error())
+			return nil
+		}
+
+		var users []string
+		for _, d := range dir {
+			if !d.IsDir() {
+				continue
+			}
+
+			users = append(users, d.Name())
+		}
+
+		return users
 	}
 }
 
@@ -181,8 +204,7 @@ func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
 		if !d.IsDir() {
 			continue
 		}
-		r := RepoInfo{Name: d.Name()}
-		r.Desc = readDesc(path.Join(userDir, r.Name))
+		r := RepoInfo{Repo: d.Name()}
 
 		repos = append(repos, r)
 	}
@@ -196,14 +218,14 @@ func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing
 	return func(ref plumbing.Hash) []*plumbing.Reference {
 
 		logger.Debug("getting branches for ref", ref.String())
-		branches, err := repo.Branches()
+		brs, err := repo.Branches()
 		if err != nil {
 			logger.Error("branches error:", err.Error())
 			return nil
 		}
 
 		var branches []*plumbing.Reference
-		branches.ForEach(func(b *plumbing.Reference) error {
+		brs.ForEach(func(b *plumbing.Reference) error {
 			branches = append(branches, b)
 			return nil
 		})
@@ -211,114 +233,3 @@ func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing
 	}
 }
 
-func (g *Gwi) SummaryHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	info := RepoInfo{
-		Commits: []*object.Commit{},
-		Creator: mux.Vars(r)["user"],
-		Name:    mux.Vars(r)["repo"],
-	}
-	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
-	logger.Debug("repo:", info.Name)
-
-	repo, err := git.PlainOpen(repoDir)
-	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
-	logger.Info(info)
-
-	// branches
-	branches, err := repo.Branches()
-	if err != nil {
-		logger.Error("branches error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	branches.ForEach(func(b *plumbing.Reference) error {
-		info.Branches = append(info.Branches, b)
-		return nil
-	})
-
-	// files
-	if ref := mux.Vars(r)["commit"]; ref == "" {
-		head, err := repo.Head()
-		if err != nil {
-			logger.Error("head error:", err.Error())
-			g.pages.ExecuteTemplate(w, "empty.html", info)
-			return
-		}
-		info.Ref = head.Hash()
-	} else {
-		info.Ref = plumbing.NewHash(ref)
-	}
-	if err != nil {
-		logger.Error("head error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	headObj, err := repo.CommitObject(info.Ref)
-	if err != nil {
-		logger.Error("head commit error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tree, err := headObj.Tree()
-	if err != nil {
-		logger.Error("trees error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tree.Files().ForEach(func(f *object.File) error {
-		switch strings.ToLower(f.Name) {
-		case "readme.md":
-			if reader, err := f.Blob.Reader(); err == nil {
-				readme, _ := io.ReadAll(reader)
-				info.Readme = template.HTML(
-					"<article>" + string(markdown.ToHTML(readme, nil, nil)) + "</article>",
-				)
-			} else {
-				logger.Debug("read readme error:", err.Error())
-			}
-		case "readme.txt", "readme":
-			if reader, err := f.Blob.Reader(); err == nil {
-				readme, _ := io.ReadAll(reader)
-				info.Readme = template.HTML(
-					"<pre>" + string(readme) + "</pre>",
-				)
-			} else {
-				logger.Debug("read readme error:", err.Error())
-			}
-		case "license.md":
-			if reader, err := f.Blob.Reader(); err == nil {
-				lic, _ := io.ReadAll(reader)
-				info.License = template.HTML(
-					"<article>" + string(markdown.ToHTML(lic, nil, nil)) + "</article>",
-				)
-			} else {
-				logger.Debug("read license error:", err.Error())
-			}
-		case "license.txt", "license":
-			if reader, err := f.Blob.Reader(); err == nil {
-				license, _ := io.ReadAll(reader)
-				info.License = template.HTML(
-					"<pre>" + string(license) + "</pre>",
-				)
-			} else {
-				logger.Debug("read license error:", err.Error())
-			}
-		}
-
-		return nil
-	})
-
-	if err := g.pages.ExecuteTemplate(w, "summary.html", info); err != nil {
-		logger.Error(err.Error())
-	}
-}

@@ -1,9 +1,9 @@
 {{template "style.html"}}
 {{template "head.html"}}
-{{template "header.html" .Creator}}
+{{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Name}}</h1>
+<h1>{{.Repo}}</h1>
 
 <table>
     <tr>
@@ -11,11 +11,11 @@
         <th>Author</th>
         <th>Message</th>
     </tr>
-    {{range .Commits}}
+    {{range commits .Ref}}
     <tr>
         <td>{{.Author.When.String}}</td>
         <td>{{.Author.Name}}</td>
-	<td><a href="/{{$.Creator}}/{{$.Name}}/commits/{{.Hash.String}}">{{.Message}}</a></td>
+	<td><a href="/{{$.User}}/{{$.Repo}}/commit/{{.Hash.String}}">{{.Message}}</a></td>
     </tr>
     {{end}}
 </table>

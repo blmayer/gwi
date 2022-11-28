@@ -3,7 +3,7 @@
 {{template "header.html"}}
 {{template "nav.html" .}}
 
-<h1>{{.Name}}</h1>
+<h1>{{.Repo}}</h1>
 
 <table>
     <tr>
@@ -11,11 +11,11 @@
         <th>Size</th>
         <th>Name</th>
     </tr>
-    {{range .Files}}
+    {{range tree .Ref}}
     <tr>
         <td>{{.Mode}}</td>
         <td>{{.Size}}</td>
-	<td><a href="/{{$.Creator}}/{{$.Name}}/{{$.Ref}}/files/{{.Name}}">{{.Name}}</a></td>
+	<td><a href="/{{$.User}}/{{$.Repo}}/files/{{$.Ref}}/{{.Name}}">{{.Name}}</a></td>
     </tr>
     {{end}}
 </table>

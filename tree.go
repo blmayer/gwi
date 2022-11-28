@@ -54,69 +54,75 @@ func (g *Gwi) file(repo *git.Repository) func(ref plumbing.Hash, name string) st
 		commit, err := repo.CommitObject(ref)
 		if err != nil {
 			logger.Error("commit error:", err.Error())
-			return nil
+			return ""
 		}
 
-		logger.Debug("getting file", file)
-		fileObj, err := commit.File(file)
+		logger.Debug("getting file", name)
+		fileObj, err := commit.File(name)
 		if err != nil {
 			logger.Error("head file error:", err.Error())
 			return ""
 		}
-		return fileObject.Contents()
+
+		c, err := fileObj.Contents()
+		if err != nil {
+			logger.Error("file contents error:", err.Error())
+			return ""
+		}
+
+		return c
 	}
 }
 
-func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	info := RepoInfo{
-		Creator: mux.Vars(r)["user"],
-		Name:    mux.Vars(r)["repo"],
-		Ref:     plumbing.NewHash(mux.Vars(r)["ref"]),
-	}
-	logger.Debug("tree:", info.Name)
-	repoDir := path.Join(g.config.Root, info.Creator, info.Name)
-	info.Desc = readDesc(repoDir)
-	info.CloneURL = "https://" + path.Join(g.config.Domain, info.Creator, info.Name)
-
-	repo, err := git.PlainOpen(repoDir)
-	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// files
-	logger.Debug("getting tree for ref", info.Ref.String())
-	commit, err := repo.CommitObject(info.Ref)
-	if err != nil {
-		logger.Error("commit error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	tree, err := commit.Tree()
-	if err != nil {
-		logger.Error("trees error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tree.Files().ForEach(func(f *object.File) error {
-		size, _ := tree.Size(f.Name)
-		info.Files = append(
-			info.Files,
-			File{
-				File: f,
-				Size: size,
-			},
-		)
-		return nil
-	})
-
-	if err := g.pages.ExecuteTemplate(w, "tree.html", info); err != nil {
-		logger.Error(err.Error())
-	}
-}
+//func (g *Gwi) TreeHandler(w http.ResponseWriter, r *http.Request) {
+//	w.Header().Set("Content-Type", "text/html")
+//	info := RepoInfo{
+//		User: mux.Vars(r)["user"],
+//		Repo:    mux.Vars(r)["repo"],
+//		Ref:     plumbing.NewHash(mux.Vars(r)["ref"]),
+//	}
+//	logger.Debug("tree:", info.Repo)
+//	repoDir := path.Join(g.config.Root, info.User, info.Repo)
+//	info.CloneURL = "https://" + path.Join(g.config.Domain, info.User, info.Repo)
+//
+//	repo, err := git.PlainOpen(repoDir)
+//	if err != nil {
+//		logger.Error("git PlainOpen error:", err.Error())
+//		http.Error(w, err.Error(), http.StatusInternalServerError)
+//		return
+//	}
+//
+//	// files
+//	logger.Debug("getting tree for ref", info.Ref.String())
+//	commit, err := repo.CommitObject(info.Ref)
+//	if err != nil {
+//		logger.Error("commit error:", err.Error())
+//		http.Error(w, err.Error(), http.StatusInternalServerError)
+//		return
+//	}
+//	tree, err := commit.Tree()
+//	if err != nil {
+//		logger.Error("trees error:", err.Error())
+//		http.Error(w, err.Error(), http.StatusInternalServerError)
+//		return
+//	}
+//
+//	tree.Files().ForEach(func(f *object.File) error {
+//		size, _ := tree.Size(f.Name)
+//		info.Files = append(
+//			info.Files,
+//			File{
+//				File: f,
+//				Size: size,
+//			},
+//		)
+//		return nil
+//	})
+//
+//	if err := g.pages.ExecuteTemplate(w, "tree.html", info); err != nil {
+//		logger.Error(err.Error())
+//	}
+//}
 
 func (g *Gwi) tree(repo *git.Repository) func(ref plumbing.Hash) []File {
 	return func(ref plumbing.Hash) []File {

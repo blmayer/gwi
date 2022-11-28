@@ -1,14 +1,16 @@
 {{template "style.html"}}
 {{template "head.html"}}
-{{template "header.html" .Creator}}
+{{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Name}}</h1>
+<h1>{{.Repo}}</h1>
 
-<p><b>Commited at:</b> {{.Commit.Committer.When.String}}</p>
-<p><b>Author:</b> {{.Commit.Committer.Name}} ({{.Commit.Committer.Email}})</p>
+{{with commit .Ref}}
+<p><b>Commited at:</b> {{.Committer.When.String}}</p>
+<p><b>Author:</b> {{.Committer.Name}} ({{.Committer.Email}})</p>
 <p><b>Message:</b></p>
-<p>{{.Commit.Message}}</p>
+<p>{{.Message}}</p>
 
 <h3>Changes</h3>
-<pre>{{.Patch}}</pre>
+<pre>{{.Patch (.Parent 0)}}</pre>
+{{end}}

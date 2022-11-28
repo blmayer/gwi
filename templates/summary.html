@@ -1,38 +1,34 @@
 {{template "style.html"}}
 {{template "head.html"}}
-{{template "header.html" .Creator}}
+{{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Name}}</h1>
+<h1>{{.Repo}}</h1>
 
 <details>
 	<summary>
-		Browsing at {{.RefName}}.
+		Browsing {{.RefName}}
 	</summary>
 	<ul>
-		{{range .Branches}}
+		{{range branches .Ref}}
 		<li><a href={{.Hash.String}}>{{.Name.Short}}</a></li>
 		{{end}}
 	</ul>
 </details>
 
-<p><i>{{.Desc}}</i></p>
+<p>{{commits .Ref | len}} commits</p>
 
 <p><b>git clone {{.CloneURL}}</b></p>
 <hr>
 
-<ul>
-{{range commits .Ref}}
-<li>{{.Author.Name}}</li>
-{{end}}
-</ul>
 
-{{if .Readme}}
+{{if ne "" (file .Ref "README.md")}}
 	<h2>Readme</h2>
-	{{.Readme}}
+	{{file .Ref "README.md" | markdown}}
 {{end}}
 
-{{if .License}}
+{{if ne "" (file .Ref "LICENSE")}}
 	<h2>License</h2>
-	{{.License}}
+	<pre>{{file .Ref "LICENSE"}}</pre>
 {{end}}
+
