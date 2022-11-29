@@ -27,12 +27,11 @@ type File struct {
 	Size int64
 }
 
-type RepoInfo struct {
+type Info struct {
 	User     string
 	Repo     string
 	Ref      plumbing.Hash
 	RefName  string
-	CloneURL string
 	Args     string
 }
 
@@ -57,6 +56,7 @@ type Gwi struct {
 
 var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
+	"repos":    func(user string) []string { return nil },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
@@ -70,12 +70,10 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	r := mux.NewRouter()
 
-	r.Handle("/", http.HandlerFunc(gwi.UserListHandler))
-	r.Handle("/index.html", http.HandlerFunc(gwi.UserListHandler))
-	r.Handle("/{user}/index.html", http.HandlerFunc(gwi.RepoListHandler))
-
-	r.Handle("/{user}/{repo}/{op}/{ref:.*}", http.HandlerFunc(gwi.MainHandler))
-	r.Handle("/{user}/{repo}/{op}/{ref}/{args:.*}", http.HandlerFunc(gwi.MainHandler))
+	r.HandleFunc("/", gwi.ListHandler)
+	r.HandleFunc("/{user}", gwi.ListHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
@@ -97,18 +95,43 @@ func (g *Gwi) Handle() http.Handler {
 	return g.handler
 }
 
+func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	logger.Debug("running list handler with", vars)
+
+	info := Info{
+		User: vars["user"],
+		Repo: vars["repo"],
+	}
+
+	funcMap := map[string]any{
+		"users": g.users(),
+		"repos": g.repos(),
+	}
+	pages := g.pages.Funcs(funcMap)
+
+	w.Header().Set("Content-Type", "text/html")
+	page := "users.html"
+	if info.User != "" {
+		page = "repos.html"
+	}
+
+	if err := pages.ExecuteTemplate(w, page, info); err != nil {
+		logger.Error("execute error:", err.Error())
+	}
+}
+
 func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running main handler with", vars)
 
-	info := RepoInfo{
+	info := Info{
 		User: vars["user"],
 		Repo: vars["repo"],
 		Ref:  plumbing.NewHash(vars["ref"]),
 		Args: vars["args"],
 	}
 	repoDir := path.Join(g.config.Root, info.User, info.Repo)
-	info.CloneURL = "https://" + path.Join(g.config.Domain, info.User, info.Repo)
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
@@ -125,6 +148,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	funcMap := map[string]any{
 		"users": g.users(),
+		"repos": g.repos(),
 		"branches": g.branches(repo),
 		"commits":  g.commits(repo),
 		"commit":   g.commit(repo),
@@ -135,7 +159,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	if err := pages.ExecuteTemplate(w, vars["op"]+".html", info); err != nil {
-		println("execute error:", err.Error())
+		logger.Error("execute error:", err.Error())
 	}
 }
 
@@ -161,62 +185,30 @@ func (g *Gwi) users() func() []string {
 	}
 }
 
-func (g *Gwi) UserListHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("path:", r.URL.Path)
-
-	dir, err := os.ReadDir(g.config.Root)
-	if err != nil {
-		logger.Debug("readDir error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var users []string
-	for _, d := range dir {
-		if !d.IsDir() {
-			continue
+func (g *Gwi) repos() func(user string) []string {
+	return func(user string) []string {
+		logger.Debug("getting repos for", user)
+		dir, err := os.ReadDir(path.Join(g.config.Root, user))
+		if err != nil {
+			logger.Debug("readDir error:", err.Error())
+			return nil
 		}
 
-		users = append(users, d.Name())
-	}
+		var rs []string
+		for _, d := range dir {
+			if !d.IsDir() {
+				continue
+			}
 
-	w.Header().Set("Content-Type", "text/html")
-	if err := g.pages.ExecuteTemplate(w, "users.html", users); err != nil {
-		println("execute error:", err.Error())
-	}
-}
-
-func (g *Gwi) RepoListHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	logger.Debug("path:", r.URL.Path)
-	user := mux.Vars(r)["user"]
-	userDir := path.Join(g.config.Root, user)
-
-	dir, err := os.ReadDir(userDir)
-	if err != nil {
-		logger.Debug("readDir error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var repos []RepoInfo
-	for _, d := range dir {
-		if !d.IsDir() {
-			continue
+			rs = append(rs, d.Name())
 		}
-		r := RepoInfo{Repo: d.Name()}
 
-		repos = append(repos, r)
-	}
-
-	if err := g.pages.ExecuteTemplate(w, "repos.html", repos); err != nil {
-		println("execute error:", err.Error())
+		return rs
 	}
 }
 
 func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing.Reference {
 	return func(ref plumbing.Hash) []*plumbing.Reference {
-
 		logger.Debug("getting branches for ref", ref.String())
 		brs, err := repo.Branches()
 		if err != nil {

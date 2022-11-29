@@ -10,6 +10,7 @@ import (
 
 func (g *Gwi) commits(repo *git.Repository) func(ref plumbing.Hash) []*object.Commit {
 	return func(ref plumbing.Hash) []*object.Commit {
+		logger.Debug("getting log for ref", ref.String())
 		logs, err := repo.Log(&git.LogOptions{From: ref})
 		if err != nil {
 			logger.Error("commits", err.Error())
@@ -31,6 +32,7 @@ func (g *Gwi) commits(repo *git.Repository) func(ref plumbing.Hash) []*object.Co
 
 func (g *Gwi) commit(repo *git.Repository) func(ref plumbing.Hash) *object.Commit {
 	return func(ref plumbing.Hash) *object.Commit {
+		logger.Debug("getting commit", ref.String())
 		c, err := repo.CommitObject(ref)
 		if err != nil {
 			logger.Error("commit", err.Error())
