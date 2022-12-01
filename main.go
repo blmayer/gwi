@@ -158,7 +158,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		info.Ref = head.Hash()
 		info.RefName = head.Name().Short()
 	} else {
-		if refName, ok = refs[info.Ref]; ok {
+		if refName, ok := refs[info.Ref]; ok {
 			info.RefName = refName.Name().Short()
 		} else {
 			info.RefName = info.Ref.String()
