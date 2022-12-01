@@ -28,11 +28,11 @@ type File struct {
 }
 
 type Info struct {
-	User     string
-	Repo     string
-	Ref      plumbing.Hash
-	RefName  string
-	Args     string
+	User    string
+	Repo    string
+	Ref     plumbing.Hash
+	RefName string
+	Args    string
 }
 
 type Config struct {
@@ -57,9 +57,10 @@ type Gwi struct {
 var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
+	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
+	"tags":     func() []*plumbing.Reference { return nil },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
-	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": func(in string) template.HTML { return template.HTML(markdown.ToHTML([]byte(in), nil, nil)) },
@@ -140,16 +141,31 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	refIter, err := repo.References()
+	if err != nil {
+		logger.Error("git references error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	refs := map[plumbing.Hash]*plumbing.Reference{}
+	refIter.ForEach(func(r *plumbing.Reference) error {
+		refs[r.Hash()] = r
+		return nil
+	})
+
 	if vars["ref"] == "" {
 		head, _ := repo.Head()
 		info.Ref = head.Hash()
 		info.RefName = head.Name().Short()
+	} else {
+		info.RefName = refs[info.Ref].Name().Short()
 	}
 
 	funcMap := map[string]any{
-		"users": g.users(),
-		"repos": g.repos(),
+		"users":    g.users(),
+		"repos":    g.repos(),
 		"branches": g.branches(repo),
+		"tags":     g.tags(repo),
 		"commits":  g.commits(repo),
 		"commit":   g.commit(repo),
 		"tree":     g.tree(repo),
@@ -225,3 +241,20 @@ func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing
 	}
 }
 
+func (g *Gwi) tags(repo *git.Repository) func() []*plumbing.Reference {
+	return func() []*plumbing.Reference {
+		logger.Debug("getting tags")
+		tgs, err := repo.Tags()
+		if err != nil {
+			logger.Error("tags error:", err.Error())
+			return nil
+		}
+
+		var tags []*plumbing.Reference
+		tgs.ForEach(func(t *plumbing.Reference) error {
+			tags = append(tags, t)
+			return nil
+		})
+		return tags
+	}
+}

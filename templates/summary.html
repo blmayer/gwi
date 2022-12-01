@@ -18,9 +18,8 @@
 
 <p>{{commits .Ref | len}} commits</p>
 
-<p><b>git clone {{.CloneURL}}</b></p>
+<p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
 <hr>
-
 
 {{if ne "" (file .Ref "README.md")}}
 	<h2>Readme</h2>
