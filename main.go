@@ -85,6 +85,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	r.HandleFunc("/{user}", gwi.ListHandler)
 	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}", gwi.MainHandler)
 
 	gwi.handler = r
 
@@ -181,8 +183,13 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	pages := g.pages.Funcs(funcMap)
 
+	op := vars["op"]
+	if op == "" {
+		op = "summary"
+	}
+
 	w.Header().Set("Content-Type", "text/html")
-	if err := pages.ExecuteTemplate(w, vars["op"]+".html", info); err != nil {
+	if err := pages.ExecuteTemplate(w, op+".html", info); err != nil {
 		logger.Error("execute error:", err.Error())
 	}
 }
