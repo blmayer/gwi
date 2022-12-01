@@ -69,6 +69,10 @@ var funcMapTempl = map[string]any{
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{config: config, vault: vault}
 
+	if os.Getenv("DEBUG") != "" {
+		logger.SetLevel(logger.DebugLevel)
+	}
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)

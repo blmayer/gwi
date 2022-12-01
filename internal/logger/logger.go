@@ -3,28 +3,34 @@ package logger
 import "fmt"
 
 const (
-	ErrorLevel = iota
+	ErrorLevel = Level(iota)
 	WarningLevel
 	InfoLevel
 	DebugLevel
 )
 
-var Level int
+type Level int
+
+var level = InfoLevel
+
+func SetLevel(l Level) {
+	level = l
+}
 
 func Debug(args ...any) {
-	if Level > 2 {
+	if level > 2 {
 		fmt.Println(append([]any{"[DEBUG]"}, args...)...)
 	}
 }
 
 func Info(args ...any) {
-	if Level > 1 {
+	if level > 1 {
 		fmt.Println(append([]any{"[INFO]"}, args...)...)
 	}
 }
 
 func Warn(args ...any) {
-	if Level > 0 {
+	if level > 0 {
 		fmt.Println(append([]any{"[WARN]"}, args...)...)
 	}
 }
