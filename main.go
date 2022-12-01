@@ -73,8 +73,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	r.HandleFunc("/", gwi.ListHandler)
 	r.HandleFunc("/{user}", gwi.ListHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
