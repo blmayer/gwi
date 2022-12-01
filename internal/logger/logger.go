@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	ErrorLevel = iota
-	WarningLeve
+	WarningLevel
 	InfoLevel
 	DebugLevel
 )
@@ -18,10 +18,17 @@ func Debug(args ...any) {
 }
 
 func Info(args ...any) {
-	fmt.Println(append([]any{"[INFO]"}, args...)...)
+	if Level > 1 {
+		fmt.Println(append([]any{"[INFO]"}, args...)...)
+	}
+}
+
+func Warn(args ...any) {
+	if Level > 0 {
+		fmt.Println(append([]any{"[WARN]"}, args...)...)
+	}
 }
 
 func Error(args ...any) {
 	fmt.Println(append([]any{"[ERROR]"}, args...)...)
 }
-

@@ -36,11 +36,11 @@ type Info struct {
 }
 
 type Config struct {
-	Domain    string
 	PagesRoot string
 	Root      string
 	CGIRoot   string
 	CGIPrefix string
+	LogLevel  logger.Level
 }
 
 type Vault interface {
@@ -71,16 +71,16 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/", gwi.ListHandler)
-	r.HandleFunc("/{user}", gwi.ListHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
-
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/objects/info", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/HEAD", gwi.GitCGIHandler)
+
+	r.HandleFunc("/", gwi.ListHandler)
+	r.HandleFunc("/{user}", gwi.ListHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
 
 	gwi.handler = r
 
