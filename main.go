@@ -32,11 +32,11 @@ type File struct {
 }
 
 type Info struct {
-	User     string
-	Repo     string
-	Ref      plumbing.Hash
-	RefName  string
-	Args     string
+	User    string
+	Repo    string
+	Ref     plumbing.Hash
+	RefName string
+	Args    string
 }
 
 type Thread struct {
@@ -53,6 +53,7 @@ type Config struct {
 	Root      string
 	CGIRoot   string
 	CGIPrefix string
+	LogLevel  logger.Level
 }
 
 type Vault interface {
@@ -71,9 +72,10 @@ var funcMapTempl = map[string]any{
 	"repos":    func(user string) []string { return nil },
 	"thread":   func(section string) []Thread { return nil },
 	"mail":     func(section, name string) parsemail.Email { return parsemail.Email{} },
+	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
+	"tags":     func() []*plumbing.Reference { return nil },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
-	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": func(in string) template.HTML { return template.HTML(markdown.ToHTML([]byte(in), nil, nil)) },
@@ -82,18 +84,24 @@ var funcMapTempl = map[string]any{
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{config: config, vault: vault}
 
-	r := mux.NewRouter()
+	if os.Getenv("DEBUG") != "" {
+		logger.SetLevel(logger.DebugLevel)
+	}
 
-	r.HandleFunc("/", gwi.ListHandler)
-	r.HandleFunc("/{user}", gwi.ListHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
+	r := mux.NewRouter()
 
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/objects/info", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/HEAD", gwi.GitCGIHandler)
+
+	r.HandleFunc("/", gwi.ListHandler)
+	r.HandleFunc("/{user}", gwi.ListHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}", gwi.MainHandler)
 
 	gwi.handler = r
 
@@ -154,10 +162,28 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	refIter, err := repo.References()
+	if err != nil {
+		logger.Error("git references error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	refs := map[plumbing.Hash]*plumbing.Reference{}
+	refIter.ForEach(func(r *plumbing.Reference) error {
+		refs[r.Hash()] = r
+		return nil
+	})
+
 	if vars["ref"] == "" {
 		head, _ := repo.Head()
 		info.Ref = head.Hash()
 		info.RefName = head.Name().Short()
+	} else {
+		if refName, ok := refs[info.Ref]; ok {
+			info.RefName = refName.Name().Short()
+		} else {
+			info.RefName = info.Ref.String()
+		}
 	}
 
 	funcMap := map[string]any{
@@ -166,6 +192,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		"thread":   g.thread(info.User, info.Repo),
 		"mail":     g.mail(info.User, info.Repo),
 		"branches": g.branches(repo),
+		"tags":     g.tags(repo),
 		"commits":  g.commits(repo),
 		"commit":   g.commit(repo),
 		"tree":     g.tree(repo),
@@ -173,8 +200,13 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	pages := g.pages.Funcs(funcMap)
 
+	op := vars["op"]
+	if op == "" {
+		op = "summary"
+	}
+
 	w.Header().Set("Content-Type", "text/html")
-	if err := pages.ExecuteTemplate(w, vars["op"]+".html", info); err != nil {
+	if err := pages.ExecuteTemplate(w, op+".html", info); err != nil {
 		logger.Error("execute error:", err.Error())
 	}
 }
@@ -287,3 +319,20 @@ func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing
 	}
 }
 
+func (g *Gwi) tags(repo *git.Repository) func() []*plumbing.Reference {
+	return func() []*plumbing.Reference {
+		logger.Debug("getting tags")
+		tgs, err := repo.Tags()
+		if err != nil {
+			logger.Error("tags error:", err.Error())
+			return nil
+		}
+
+		var tags []*plumbing.Reference
+		tgs.ForEach(func(t *plumbing.Reference) error {
+			tags = append(tags, t)
+			return nil
+		})
+		return tags
+	}
+}

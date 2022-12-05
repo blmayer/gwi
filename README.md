@@ -55,9 +55,10 @@ exports the following functions:
 
 - users:    `func() []string`
 - repos:    `func(user string) []string`
+- branches: `func(ref plumbing.Hash) []*plumbing.Reference`
+- tags:     `func() []*plumbing.Reference`
 - commits:  `func(ref plumbing.Hash) []*object.Commit`
 - commit:   `func(ref plumbing.Hash) *object.Commit`
-- branches: `func(ref plumbing.Hash) []*plumbing.Reference`
 - tree:     `func(ref plumbing.Hash) []File `
 - file:     `func(ref plumbing.Hash, name string) string`
 - markdown: `func(in string) template.HTML`
@@ -77,7 +78,6 @@ type RepoInfo struct {
 	Repo     string
 	Ref      plumbing.Hash
 	RefName  string
-	CloneURL string
 	Args     string
 }
 ```
@@ -159,5 +159,4 @@ To get the list, and the following show a commit's details:
 <p>{{.Message}}</p>
 {{end}}
 ```
-
 
