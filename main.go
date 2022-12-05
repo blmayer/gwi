@@ -14,8 +14,12 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
+	"github.com/vraycc/go-parsemail"
+
 	"github.com/gomarkdown/markdown"
 )
+
+type ThreadStatus string
 
 type User struct {
 	Login string
@@ -35,8 +39,16 @@ type Info struct {
 	Args     string
 }
 
+type Thread struct {
+	Title string
+	Creator string
+	Lenght int
+	Status ThreadStatus
+}
+
 type Config struct {
 	Domain    string
+	MailAddress string
 	PagesRoot string
 	Root      string
 	CGIRoot   string
@@ -57,6 +69,8 @@ type Gwi struct {
 var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
+	"thread":   func(section string) []Thread { return nil },
+	"mail":     func(section, name string) parsemail.Email { return parsemail.Email{} },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
@@ -147,8 +161,10 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	funcMap := map[string]any{
-		"users": g.users(),
-		"repos": g.repos(),
+		"users":    g.users(),
+		"repos":    g.repos(),
+		"thread":   g.thread(info.User, info.Repo),
+		"mail":     g.mail(info.User, info.Repo),
 		"branches": g.branches(repo),
 		"commits":  g.commits(repo),
 		"commit":   g.commit(repo),
@@ -160,6 +176,52 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	if err := pages.ExecuteTemplate(w, vars["op"]+".html", info); err != nil {
 		logger.Error("execute error:", err.Error())
+	}
+}
+
+func (g *Gwi) thread(user, repo string) func(section string) []Thread {
+	return func(section string) []Thread {
+		logger.Debug("getting mail for", section)
+
+		mailDir := path.Join(g.config.Root, user, repo, section)
+		dir, err := os.ReadDir(mailDir)
+		if err != nil {
+			logger.Debug("readDir error:", err.Error())
+			return nil
+		}
+
+		var threads []Thread
+		for _, d := range dir {
+			if !d.IsDir() {
+				continue
+			}
+
+			t := Thread{Title: d.Name()}
+
+			threads = append(threads, t)
+		}
+
+		return threads
+	}
+}
+
+func (g *Gwi) mail(user, repo string) func(section, name string) parsemail.Email {
+	return func(section, name string) parsemail.Email {
+		logger.Debug("getting mail for", section)
+
+		mail := path.Join(g.config.Root, user, repo, section, name)
+		mailFile, err := os.Open(mail)
+		if err != nil {
+			logger.Debug("open mail error:", err.Error())
+			return parsemail.Email{}
+		}
+		defer mailFile.Close()
+
+		email, err := parsemail.Parse(mailFile)
+		if err != nil {
+			logger.Debug("email parse error:", err.Error())
+		}
+		return email
 	}
 }
 
