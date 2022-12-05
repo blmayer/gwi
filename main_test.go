@@ -12,7 +12,7 @@ func Test_main(t *testing.T) {
 
 	cfg := Config{
 		PagesRoot: "templates",
-		Root:      "/home/blmayer/gwi/git",
+		Root:      "/home/blmayer/repos/gwi/git",
 		CGIRoot:   "/usr/lib/git-core/git-http-backend",
 	}
 

@@ -1,0 +1,49 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html" .User}}
+{{template "nav.html" .}}
+
+<h1>{{.Repo}}</h1>
+
+<details>
+	<summary>
+		Browsing {{.RefName}}
+	</summary>
+	<ul>
+		{{range branches .Ref}}
+		<li><a href={{.Hash.String}}>{{.Name.Short}}</a></li>
+		{{end}}
+	</ul>
+</details>
+
+<p>{{commits .Ref | len}} commits</p>
+
+<p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
+<hr>
+
+{{with thread "RFC"}}
+	<h2>RFCs</h2>
+	<ol reversed>
+	{{range .}}
+		<a href=rfc/{{.Title}}>{{.Title}}</a>
+	{{end}}
+	</ol>
+{{end}}
+
+{{with thread "BUG"}}
+	<h2>Bugs</h2>
+	<ol reversed>
+	{{range .}}
+		<a href=bug/{{.Title}}>{{.Title}}</a>
+	{{end}}
+	</ol>
+{{end}}
+
+{{with thread "PATCH"}}
+	<h2>Patches</h2>
+	<ol reversed>
+	{{range .}}
+		<a href=patch/{{.Title}}>{{.Title}}</a>
+	{{end}}
+	</ol>
+{{end}}

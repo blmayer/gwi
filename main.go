@@ -71,7 +71,7 @@ var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
 	"thread":   func(section string) []Thread { return nil },
-	"mail":     func(section, name string) parsemail.Email { return parsemail.Email{} },
+	"mails":    func(section string) []parsemail.Email { return nil },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tags":     func() []*plumbing.Reference { return nil },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
@@ -82,7 +82,11 @@ var funcMapTempl = map[string]any{
 }
 
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
-	gwi := Gwi{config: config, vault: vault}
+	gwi := Gwi{
+		config: config,
+		vault: vault, 
+		pages: template.New("all").Funcs(funcMapTempl),
+	}
 
 	if os.Getenv("DEBUG") != "" {
 		logger.SetLevel(logger.DebugLevel)
@@ -98,8 +102,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	r.HandleFunc("/", gwi.ListHandler)
 	r.HandleFunc("/{user}", gwi.ListHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref}/{args:.*}", gwi.MainHandler)
-	r.HandleFunc("/{user}/{repo}/{op}/{ref:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{args:.*}", gwi.MainHandler)
+	r.HandleFunc("/{user}/{repo}/{op}", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}/", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}", gwi.MainHandler)
 
@@ -108,7 +112,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	// read templates
 	var err error
 	logger.Debug("parsing templates...")
-	gwi.pages, err = template.New("all").Funcs(funcMapTempl).ParseGlob(path.Join(config.PagesRoot, "*.html"))
+	gwi.pages, err = gwi.pages.ParseGlob(path.Join(config.PagesRoot, "*.html"))
 
 	return gwi, err
 }
@@ -150,7 +154,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	info := Info{
 		User: vars["user"],
 		Repo: vars["repo"],
-		Ref:  plumbing.NewHash(vars["ref"]),
+		Ref:  plumbing.NewHash(r.URL.Query().Get("ref")),
 		Args: vars["args"],
 	}
 	repoDir := path.Join(g.config.Root, info.User, info.Repo)
@@ -174,7 +178,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 
-	if vars["ref"] == "" {
+	if r.URL.Query().Get("ref") == "" {
 		head, _ := repo.Head()
 		info.Ref = head.Hash()
 		info.RefName = head.Name().Short()
@@ -190,7 +194,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		"users":    g.users(),
 		"repos":    g.repos(),
 		"thread":   g.thread(info.User, info.Repo),
-		"mail":     g.mail(info.User, info.Repo),
+		"mails":    g.mails(info.User, info.Repo),
 		"branches": g.branches(repo),
 		"tags":     g.tags(repo),
 		"commits":  g.commits(repo),
@@ -213,10 +217,11 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gwi) thread(user, repo string) func(section string) []Thread {
 	return func(section string) []Thread {
-		logger.Debug("getting mail for", section)
+		logger.Debug("getting threads for", section)
 
-		mailDir := path.Join(g.config.Root, user, repo, section)
-		dir, err := os.ReadDir(mailDir)
+		dir, err := os.ReadDir(
+			path.Join(g.config.Root, user, repo, "mail", section),
+		)
 		if err != nil {
 			logger.Debug("readDir error:", err.Error())
 			return nil
@@ -237,23 +242,35 @@ func (g *Gwi) thread(user, repo string) func(section string) []Thread {
 	}
 }
 
-func (g *Gwi) mail(user, repo string) func(section, name string) parsemail.Email {
-	return func(section, name string) parsemail.Email {
-		logger.Debug("getting mail for", section)
+func (g *Gwi) mails(user, repo string) func(section, thread string) []parsemail.Email {
+	return func(section, thread string) []parsemail.Email {
+		logger.Debug("getting mail for", section, thread)
 
-		mail := path.Join(g.config.Root, user, repo, section, name)
-		mailFile, err := os.Open(mail)
+		dir := path.Join(g.config.Root, user, repo, "mail", section, thread)
+		threadDir, err := os.ReadDir(dir)
 		if err != nil {
-			logger.Debug("open mail error:", err.Error())
-			return parsemail.Email{}
+			logger.Debug("readDir error:", err.Error())
+			return nil
 		}
-		defer mailFile.Close()
 
-		email, err := parsemail.Parse(mailFile)
-		if err != nil {
-			logger.Debug("email parse error:", err.Error())
+		var mail []parsemail.Email
+		for _, t := range threadDir {
+			mailFile, err := os.Open(path.Join(dir, t.Name()))
+			if err != nil {
+				logger.Debug("open mail error:", err.Error())
+				continue
+			}
+
+			m, err := parsemail.Parse(mailFile)
+			mailFile.Close()
+			if err != nil {
+				logger.Debug("email parse error:", err.Error())
+			}
+
+			mail = append(mail, m)
 		}
-		return email
+
+		return mail
 	}
 }
 
