@@ -54,7 +54,6 @@ type Config struct {
 	CGIRoot   string
 	CGIPrefix string
 	LogLevel  logger.Level
-	Sanitizer func(in string) string
 }
 
 type Vault interface {
@@ -91,10 +90,6 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 		pages: template.New("all").Funcs(funcMapTempl),
 	}
 
-	if config.Sanitizer == nil {
-		config.Sanitizer = func(in string) string { return in }
-	}
-
 	if os.Getenv("DEBUG") != "" {
 		logger.SetLevel(logger.DebugLevel)
 	}
@@ -126,10 +121,6 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 func (g *Gwi) Handle() http.Handler {
 	return g.handler
-}
-
-func (g *Gwi) sanitize(in string) string {
-	return g.config.Sanitizer(in)
 }
 
 func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
@@ -268,26 +259,28 @@ func (g *Gwi) mails(user, repo string) func(section, thread string) []parsemail.
 		dir := path.Join(g.config.Root, user, repo, "mail", section, thread)
 		threadDir, err := os.ReadDir(dir)
 		if err != nil {
-			logger.Debug("readDir error:", err.Error())
+			logger.Error("readDir error:", err.Error())
 			return nil
 		}
 
 		var mail []parsemail.Email
 		for _, t := range threadDir {
+			logger.Debug("opening", t.Name())
 			mailFile, err := os.Open(path.Join(dir, t.Name()))
 			if err != nil {
-				logger.Debug("open mail error:", err.Error())
+				logger.Error("open mail error:", err.Error())
 				continue
 			}
 
+			logger.Debug("parsing mail")
 			m, err := parsemail.Parse(mailFile)
-			mailFile.Close()
 			if err != nil {
-				logger.Debug("email parse error:", err.Error())
+				logger.Error("email parse error:", err.Error())
 			}
-
-			// sanitize
-			m.TextBody = g.sanitize(m.TextBody)
+			logger.Debug("closing mail")
+			if err := mailFile.Close(); err != nil {
+				logger.Error("email close error:", err.Error())
+			}
 
 			mail = append(mail, m)
 		}
@@ -375,7 +368,7 @@ func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 			return ""
 		}
 
-		return g.sanitize(content)
+		return content
 	}
 }
 
