@@ -4,6 +4,7 @@
 {{template "nav.html" .}}
 
 <h1>{{.Repo}}</h1>
+<p>{{desc head.Hash}}</p>
 
 <details>
 	<summary>
@@ -21,13 +22,13 @@
 <p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
 <hr>
 
-{{if ne "" (file .Ref "README.md")}}
+{{with file .Ref "README.md"}}
 	<h2>Readme</h2>
-	{{file .Ref "README.md" | markdown}}
+	{{markdown .}}
 {{end}}
 
-{{if ne "" (file .Ref "LICENSE")}}
+{{with file .Ref "LICENSE"}}
 	<h2>License</h2>
-	<pre>{{file .Ref "LICENSE"}}</pre>
+	<pre>{{.}}</pre>
 {{end}}
 

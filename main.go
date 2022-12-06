@@ -54,6 +54,7 @@ type Config struct {
 	CGIRoot   string
 	CGIPrefix string
 	LogLevel  logger.Level
+	Sanitizer func(in string) string
 }
 
 type Vault interface {
@@ -70,8 +71,10 @@ type Gwi struct {
 var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
+	"head":     func() *plumbing.Reference { return nil },
 	"thread":   func(section string) []Thread { return nil },
 	"mails":    func(section string) []parsemail.Email { return nil },
+	"desc":     func(ref plumbing.Hash) string { return "" },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tags":     func() []*plumbing.Reference { return nil },
 	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
@@ -86,6 +89,10 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 		config: config,
 		vault: vault, 
 		pages: template.New("all").Funcs(funcMapTempl),
+	}
+
+	if config.Sanitizer == nil {
+		config.Sanitizer = func(in string) string { return in }
 	}
 
 	if os.Getenv("DEBUG") != "" {
@@ -119,6 +126,10 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 func (g *Gwi) Handle() http.Handler {
 	return g.handler
+}
+
+func (g *Gwi) sanitize(in string) string {
+	return g.config.Sanitizer(in)
 }
 
 func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
@@ -178,8 +189,14 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 
+	head, err := repo.Head()
+	if err != nil {
+		logger.Error("git head error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if r.URL.Query().Get("ref") == "" {
-		head, _ := repo.Head()
 		info.Ref = head.Hash()
 		info.RefName = head.Name().Short()
 	} else {
@@ -193,6 +210,8 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	funcMap := map[string]any{
 		"users":    g.users(),
 		"repos":    g.repos(),
+		"head":     g.head(head),
+		"desc":     g.desc(repo),
 		"thread":   g.thread(info.User, info.Repo),
 		"mails":    g.mails(info.User, info.Repo),
 		"branches": g.branches(repo),
@@ -267,6 +286,9 @@ func (g *Gwi) mails(user, repo string) func(section, thread string) []parsemail.
 				logger.Debug("email parse error:", err.Error())
 			}
 
+			// sanitize
+			m.TextBody = g.sanitize(m.TextBody)
+
 			mail = append(mail, m)
 		}
 
@@ -315,6 +337,45 @@ func (g *Gwi) repos() func(user string) []string {
 		}
 
 		return rs
+	}
+}
+
+func (g *Gwi) head(ref *plumbing.Reference) func() *plumbing.Reference {
+	return func() *plumbing.Reference {
+		return ref
+	}
+}
+
+func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
+	return func(ref plumbing.Hash) string {
+		logger.Debug("getting desc for ref", ref.String())
+		commit, err := repo.CommitObject(ref)
+		if err != nil {
+			logger.Error("commitObject error:", err.Error())
+			return ""
+		}
+
+		tree, err := commit.Tree()
+		if err != nil {
+			logger.Error("tree error:", err.Error())
+			return ""
+		}
+		descFile, err := tree.File("DESC")
+		if err != nil && err != object.ErrFileNotFound {
+			logger.Error("descFile error:", err.Error())
+			return ""
+		}
+		if err == object.ErrFileNotFound {
+			return ""
+		}
+
+		content, err := descFile.Contents()
+		if err != nil {
+			logger.Error("contents error:", err.Error())
+			return ""
+		}
+
+		return g.sanitize(content)
 	}
 }
 
