@@ -65,10 +65,6 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Info("repo stat", err.Error(), "initializing repo")
 
 		os.Mkdir(repoDir, os.ModeDir|0o700)
-		os.Mkdir(path.Join(repoDir, "mail", "RFC"), os.ModeDir|0o700)
-		os.Mkdir(path.Join(repoDir, "mail", "BUG"), os.ModeDir|0o700)
-		os.Mkdir(path.Join(repoDir, "mail", "PATCH"), os.ModeDir|0o700)
-
 		if _, err := git.PlainInit(repoDir, true); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
