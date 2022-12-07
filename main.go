@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 
 	"blmayer.dev/x/gwi/internal/logger"
 
@@ -285,6 +286,10 @@ func (g *Gwi) mails(user, repo string) func(section, thread string) []parsemail.
 			mail = append(mail, m)
 		}
 
+		sort.Slice(
+			mail,
+			func(i, j int) bool { return mail[i].Date.Before(mail[j].Date) },
+		)
 		return mail
 	}
 }
