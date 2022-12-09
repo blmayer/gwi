@@ -18,6 +18,9 @@ import (
 	"github.com/vraycc/go-parsemail"
 
 	"github.com/gomarkdown/markdown"
+
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type ThreadStatus string
@@ -68,6 +71,8 @@ type Gwi struct {
 	vault   Vault
 }
 
+var p = bluemonday.UGCPolicy()
+
 var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
@@ -81,7 +86,7 @@ var funcMapTempl = map[string]any{
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
-	"markdown": func(in string) template.HTML { return template.HTML(markdown.ToHTML([]byte(in), nil, nil)) },
+	"markdown": mdown,
 }
 
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
@@ -226,6 +231,12 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func mdown(in string) template.HTML {	
+	safeText := p.Sanitize(in)
+	html := markdown.ToHTML([]byte(safeText), nil, nil)
+	return template.HTML(html)
+}
+
 func (g *Gwi) thread(user, repo string) func(section string) []Thread {
 	return func(section string) []Thread {
 		logger.Debug("getting threads for", section)
@@ -266,19 +277,16 @@ func (g *Gwi) mails(user, repo string) func(section, thread string) []parsemail.
 
 		var mail []parsemail.Email
 		for _, t := range threadDir {
-			logger.Debug("opening", t.Name())
 			mailFile, err := os.Open(path.Join(dir, t.Name()))
 			if err != nil {
 				logger.Error("open mail error:", err.Error())
 				continue
 			}
 
-			logger.Debug("parsing mail")
 			m, err := parsemail.Parse(mailFile)
 			if err != nil {
 				logger.Error("email parse error:", err.Error())
 			}
-			logger.Debug("closing mail")
 			if err := mailFile.Close(); err != nil {
 				logger.Error("email close error:", err.Error())
 			}
