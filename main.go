@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"time"
 
 	"blmayer.dev/x/gwi/internal/logger"
 
@@ -15,10 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
-	"github.com/vraycc/go-parsemail"
-
 	"github.com/gomarkdown/markdown"
-
 
 	"github.com/microcosm-cc/bluemonday"
 )
@@ -50,6 +48,16 @@ type Thread struct {
 	Status ThreadStatus
 }
 
+type Email struct {
+	From string
+	To string
+	Cc string
+	Date time.Time
+	Subject string
+	Body string
+	Attachments map[string][]byte
+}
+
 type Config struct {
 	Domain    string
 	MailAddress string
@@ -64,11 +72,18 @@ type Vault interface {
 	Validate(login, pass string) bool
 }
 
+type Mailer interface {
+	Threads(folder string) ([]Thread, error)
+	Mails(folder string) ([]Email, error)
+	Mail(path string) (Email, error)
+}
+
 type Gwi struct {
 	config  Config
 	pages   *template.Template
 	handler *mux.Router
 	vault   Vault
+	mailer  Mailer
 }
 
 var p = bluemonday.UGCPolicy()
@@ -78,7 +93,7 @@ var funcMapTempl = map[string]any{
 	"repos":    func(user string) []string { return nil },
 	"head":     func() *plumbing.Reference { return nil },
 	"thread":   func(section string) []Thread { return nil },
-	"mails":    func(section string) []parsemail.Email { return nil },
+	"mails":    func(thread string) []Email { return nil },
 	"desc":     func(ref plumbing.Hash) string { return "" },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tags":     func() []*plumbing.Reference { return nil },
@@ -89,10 +104,11 @@ var funcMapTempl = map[string]any{
 	"markdown": mdown,
 }
 
-func NewFromConfig(config Config, vault Vault) (Gwi, error) {
+func NewFromConfig(config Config, vault Vault, mailer Mailer) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
 		vault: vault, 
+		mailer: mailer,
 		pages: template.New("all").Funcs(funcMapTempl),
 	}
 
@@ -241,62 +257,33 @@ func (g *Gwi) thread(user, repo string) func(section string) []Thread {
 	return func(section string) []Thread {
 		logger.Debug("getting threads for", section)
 
-		dir, err := os.ReadDir(
-			path.Join(g.config.Root, user, repo, "mail", section),
-		)
+		mailPath := path.Join(user, repo, "mail", section)
+		threads, err := g.mailer.Threads(mailPath)
 		if err != nil {
-			logger.Debug("readDir error:", err.Error())
+			logger.Debug("threads error:", err.Error())
 			return nil
-		}
-
-		var threads []Thread
-		for _, d := range dir {
-			if !d.IsDir() {
-				continue
-			}
-
-			t := Thread{Title: d.Name()}
-
-			threads = append(threads, t)
 		}
 
 		return threads
 	}
 }
 
-func (g *Gwi) mails(user, repo string) func(section, thread string) []parsemail.Email {
-	return func(section, thread string) []parsemail.Email {
-		logger.Debug("getting mail for", section, thread)
+func (g *Gwi) mails(user, repo string) func(thread string) []Email {
+	return func(thread string) []Email {
+		logger.Debug("getting mail for", thread)
 
-		dir := path.Join(g.config.Root, user, repo, "mail", section, thread)
-		threadDir, err := os.ReadDir(dir)
+		dir := path.Join(user, repo, "mail", thread)
+		mail, err := g.mailer.Mails(dir)
 		if err != nil {
-			logger.Error("readDir error:", err.Error())
+			logger.Error("read mail", err.Error())
 			return nil
-		}
-
-		var mail []parsemail.Email
-		for _, t := range threadDir {
-			mailFile, err := os.Open(path.Join(dir, t.Name()))
-			if err != nil {
-				logger.Error("open mail error:", err.Error())
-				continue
-			}
-
-			m, err := parsemail.Parse(mailFile)
-			if err != nil {
-				logger.Error("email parse error:", err.Error())
-			}
-			if err := mailFile.Close(); err != nil {
-				logger.Error("email close error:", err.Error())
-			}
-
-			mail = append(mail, m)
 		}
 
 		sort.Slice(
 			mail,
-			func(i, j int) bool { return mail[i].Date.Before(mail[j].Date) },
+			func(i, j int) bool { 
+				return mail[i].Date.Before(mail[j].Date)
+			},
 		)
 		return mail
 	}

@@ -22,7 +22,8 @@ func Test_main(t *testing.T) {
 		return
 	}
 
-	g, err := NewFromConfig(cfg, vault)
+	mailer := FileMailer{Root: cfg.Root}
+	g, err := NewFromConfig(cfg, vault, mailer)
 	if err != nil {
 		t.Error(err)
 		return

@@ -21,29 +21,25 @@
 <p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
 <hr>
 
-{{with thread "RFC"}}
-	<h2>RFCs</h2>
+<h2>RFCs</h2>
+{{with thread "RFC/Open"}}
+<details open>
+	<summary><b>Open</b></summary>
 	<ol reversed>
-	{{range .}}
-		<a href=rfc/{{.Title}}>{{.Title}}</a>
-	{{end}}
+		{{range .}}
+		<a href=rfc/Open/{{.Title}}>{{.Title}}</a>
+		{{end}}
 	</ol>
+</details>
 {{end}}
 
-{{with thread "BUG"}}
-	<h2>Bugs</h2>
+{{with thread "RFC/Closed"}}
+<details>
+	<summary><b>Closed</b></summary>
 	<ol reversed>
-	{{range .}}
-		<a href=bug/{{.Title}}>{{.Title}}</a>
-	{{end}}
+		{{range .}}
+		<a href=rfc/Closed/{{.Title}}>{{.Title}}</a>
+		{{end}}
 	</ol>
-{{end}}
-
-{{with thread "PATCH"}}
-	<h2>Patches</h2>
-	<ol reversed>
-	{{range .}}
-		<a href=patch/{{.Title}}>{{.Title}}</a>
-	{{end}}
-	</ol>
+</details>
 {{end}}
