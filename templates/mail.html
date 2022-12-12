@@ -22,23 +22,28 @@
 <hr>
 
 <h2>RFCs</h2>
-{{with thread "RFC/Open"}}
+{{with thread "open"}}
 <details open>
 	<summary><b>Open</b></summary>
 	<ol reversed>
 		{{range .}}
-		<a href=rfc/Open/{{.Title}}>{{.Title}}</a>
+		<a href=open/{{.Title}}>{{.Title}}</a>
+		<aside style="float:right">
+			<small>
+				Created {{.Created.Format "2006-01-02 15:04:05"}}
+			</small>
+		</aside>
 		{{end}}
 	</ol>
 </details>
 {{end}}
 
-{{with thread "RFC/Closed"}}
+{{with thread "closed"}}
 <details>
 	<summary><b>Closed</b></summary>
 	<ol reversed>
 		{{range .}}
-		<a href=rfc/Closed/{{.Title}}>{{.Title}}</a>
+		<a href=closed/{{.Title}}>{{.Title}}</a>
 		{{end}}
 	</ol>
 </details>

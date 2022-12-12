@@ -1,7 +1,8 @@
-- Typeset markdown
+- ~~Typeset markdown~~
 - Add todo section from TODO file
 - Improve diff view
-- Suport tree for other branches/commits
-- Add tags support
+- ~~Suport tree for other branches/commits~~
+- ~~Add tags support~~
 - Improve theme
-- Support collaboration
+- ~~Support collaboration~~
+- Use folder creation time for sorting

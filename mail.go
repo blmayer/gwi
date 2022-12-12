@@ -28,7 +28,15 @@ func (m FileMailer) Threads(folder string) ([]Thread, error) {
 			continue
 		}
 
-		t := Thread{Title: d.Name()}
+		info, err := d.Info()
+		if err != nil {
+			logger.Error("dir info", err.Error())
+			continue
+		}
+		t := Thread{
+			Title: d.Name(), 
+			Created: info.ModTime(),
+		}
 
 		threads = append(threads, t)
 	}

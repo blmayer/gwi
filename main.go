@@ -44,6 +44,7 @@ type Info struct {
 type Thread struct {
 	Title string
 	Creator string
+	Created time.Time
 	Lenght int
 	Status ThreadStatus
 }

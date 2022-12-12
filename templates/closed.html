@@ -21,13 +21,13 @@
 <p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
 <hr>
 
-<h2>[RFC] {{.Args}}</h2>
-{{with print "RFC/" .Args}}
-	{{range (mails .)}}
-	<address>
-		From: {{.From}}
-	<small style="float: right">{{.Date.Format "Mon, 02 Jan 2006 15:04:05 MST"}}</small>
-	</address>
-	<blockquote>{{.Body | markdown}}</blockquote>
-	{{end}}
+<h2>Closed: {{.Args}}</h2>
+{{range (mails (print "closed/" .Args))}}
+<address>
+	From: {{.From}}
+	<small style="float: right">
+		{{.Date.Format "Mon, 02 Jan 2006 15:04:05 MST"}}
+	</small>
+</address>
+<blockquote>{{.Body | markdown}}</blockquote>
 {{end}}
