@@ -72,7 +72,7 @@ type Config struct {
 }
 
 type Vault interface {
-	GetUser(login string) User
+	GetUser(login string) any
 	Validate(login, pass string) bool
 }
 
