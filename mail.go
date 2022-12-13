@@ -1,22 +1,152 @@
 package gwi
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"time"
+	"strings"
 	"path"
 
 	"blmayer.dev/x/gwi/internal/logger"
-
+	"github.com/emersion/go-smtp"
 	"github.com/vraycc/go-parsemail"
 )
 
-type FileMailer struct {
-	Root string
+func (g Gwi) NewSession(_ *smtp.Conn) (smtp.Session, error) {
+	return Session{config: g.config}, nil
 }
 
-func (m FileMailer) Threads(folder string) ([]Thread, error) {
+func (g Gwi) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
+	return Session{}, nil
+}
+
+func (g Gwi) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
+	return Session{config: g.config, vault: g.vault, commands: g.commands}, nil
+}
+
+// A Session is returned after EHLO.
+type Session struct{
+	config Config
+	vault Vault
+	commands map[string]func(content, thread string) bool
+}
+
+func (s Session) AuthPlain(username, password string) error {
+	println("connection sent", username, password)
+	return nil
+}
+
+func (s Session) Mail(from string, opts smtp.MailOptions) error {
+	println("Mail from:", from)
+	return nil
+}
+
+func (s Session) Rcpt(to string) error {
+	println("Rcpt to:", to)
+	return nil
+}
+
+func (s Session) Data(r io.Reader) error {
+	content, err := io.ReadAll(r)
+	if err != nil {
+		println("read content", err.Error())
+		return err
+	}
+
+	email, err := parsemail.Parse(strings.NewReader(string(content)))
+	if err != nil {
+		println("parse email", err.Error())
+		return err
+	}
+
+	// get user from to field
+	from := email.From[0].Address
+	userAddress := strings.Split(email.To[0].Address, "@")
+	if userAddress[1] != s.config.Domain {
+		println("wrong domain:", userAddress[1])
+		return fmt.Errorf("wrong domain")
+	}
+	
+	userRepo := strings.Split(userAddress[0], "/")
+	user, repo := userRepo[0], userRepo[1]
+	if _, err := os.Stat(path.Join(s.config.Root, user, repo)); err != nil {
+		println("stat repo", err.Error())
+		return err
+	}
+
+	// split by subject
+	start := strings.Index(email.Subject, "[")
+	title := strings.TrimSpace(email.Subject[start:])
+
+	mailDir := path.Join(s.config.Root, user, repo, "mail/open", title)
+	err = os.MkdirAll(
+		mailDir,
+		os.ModeDir|0o700,
+	)
+
+	mailFile, err := os.Create(path.Join(mailDir, email.MessageID))
+	if err != nil {
+		println("create mail file", err.Error())
+		return err
+	}
+	defer mailFile.Close()
+
+	_, err = mailFile.Write(content)
+	if err != nil {
+		println("write mail file", err.Error())
+		return err
+	}
+
+	// apply commands
+	go func() {
+		if from != s.vault.GetUser(user).Email {
+			logger.Debug("not running commands")
+			return
+		}
+
+		logger.Debug("applying commands")
+		c := string(content)
+		for com, f := range s.commands {
+			if f(c, mailDir) {
+				logger.Debug(com, "applied")
+			}
+		}
+	}()
+
+	return err
+}
+
+func (s Session) Reset() {}
+
+func (s Session) Logout() error {
+	println("logged out")
+	return nil
+}
+
+func (g *Gwi) NewMailServer() FileMailer {
+	s := smtp.NewServer(g)
+
+	s.Addr = g.config.MailAddress
+	s.Domain = g.config.Domain
+	s.ReadTimeout = 10 * time.Second
+	s.WriteTimeout = 10 * time.Second
+	s.MaxMessageBytes = 1024 * 1024
+	s.MaxRecipients = 2
+	s.AllowInsecureAuth = true
+
+	mailer := FileMailer{Root: g.config.Root, Server: s}
+	return mailer
+}
+
+type FileMailer struct {
+	Root string
+	*smtp.Server
+}
+
+func (g *Gwi) Threads(folder string) ([]Thread, error) {
 	logger.Debug("mailer threads for", folder)
-	dir, err := os.ReadDir(path.Join(m.Root, folder))
+	dir, err := os.ReadDir(path.Join(g.config.Root, folder))
 	if err != nil {
 		logger.Debug("readDir error:", err.Error())
 		return nil, err
@@ -35,7 +165,7 @@ func (m FileMailer) Threads(folder string) ([]Thread, error) {
 		}
 		t := Thread{
 			Title: d.Name(), 
-			Created: info.ModTime(),
+			LastMod: info.ModTime(),
 		}
 
 		threads = append(threads, t)
@@ -44,10 +174,10 @@ func (m FileMailer) Threads(folder string) ([]Thread, error) {
 	return threads, nil
 }
 
-func (m FileMailer) Mails(folder string) ([]Email, error) {
+func (g *Gwi) Mails(folder string) ([]Email, error) {
 	logger.Debug("mailer mails for", folder)
 
-	dir := path.Join(m.Root, folder)
+	dir := path.Join(g.config.Root, folder)
 	threadDir, err := os.ReadDir(dir)
 	if err != nil {
 		logger.Error("readDir error:", err.Error())
@@ -56,7 +186,7 @@ func (m FileMailer) Mails(folder string) ([]Email, error) {
 
 	var emails []Email
 	for _, t := range threadDir {
-		mail, err := m.Mail(path.Join(folder, t.Name()))
+		mail, err := g.Mail(path.Join(folder, t.Name()))
 		if err != nil {
 			logger.Error("mail error:", err.Error())
 			continue
@@ -69,10 +199,10 @@ func (m FileMailer) Mails(folder string) ([]Email, error) {
 	return emails, err
 }
 
-func (m FileMailer) Mail(file string) (Email, error) {
+func (g *Gwi) Mail(file string) (Email, error) {
 	logger.Debug("mailer getting", file)
 
-	mailFile, err := os.Open(path.Join(m.Root, file))
+	mailFile, err := os.Open(path.Join(g.config.Root, file))
 	if err != nil {
 		logger.Error("open mail error:", err.Error())
 		return Email{}, err
@@ -108,4 +238,15 @@ func (m FileMailer) Mail(file string) (Email, error) {
 		email.Attachments[a.Filename] = content
 	}
 	return email, nil
+}
+
+// Close moves a thread to the closed folder
+func (g *Gwi) CloseThread(threadPath string) error {
+	logger.Debug("closing thread", threadPath)
+
+	// threadPath is like "/.../git/user/repo/mail/open/thread
+	thread := path.Base(threadPath)
+	dir := path.Dir(path.Dir(threadPath))
+
+	return os.Rename(threadPath, path.Join(dir, "closed", thread))
 }

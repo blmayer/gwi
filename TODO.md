@@ -6,3 +6,4 @@
 - Improve theme
 - ~~Support collaboration~~
 - Use folder creation time for sorting
+- Add support for commands on threads via email

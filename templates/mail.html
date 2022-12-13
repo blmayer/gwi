@@ -30,7 +30,7 @@
 		<a href=open/{{.Title}}>{{.Title}}</a>
 		<aside style="float:right">
 			<small>
-				Created {{.Created.Format "2006-01-02 15:04:05"}}
+				Updated {{.LastMod.Format "2006-01-02 15:04:05"}}
 			</small>
 		</aside>
 		{{end}}
@@ -44,6 +44,11 @@
 	<ol reversed>
 		{{range .}}
 		<a href=closed/{{.Title}}>{{.Title}}</a>
+		<aside style="float:right">
+			<small>
+				Updated {{.LastMod.Format "2006-01-02 15:04:05"}}
+			</small>
+		</aside>
 		{{end}}
 	</ol>
 </details>

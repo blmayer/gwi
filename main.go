@@ -24,6 +24,7 @@ import (
 type ThreadStatus string
 
 type User struct {
+	Email string
 	Login string
 	Pass  string
 }
@@ -44,7 +45,7 @@ type Info struct {
 type Thread struct {
 	Title string
 	Creator string
-	Created time.Time
+	LastMod time.Time
 	Lenght int
 	Status ThreadStatus
 }
@@ -67,9 +68,11 @@ type Config struct {
 	CGIRoot   string
 	CGIPrefix string
 	LogLevel  logger.Level
+	commands  map[string]func(content string) bool
 }
 
 type Vault interface {
+	GetUser(login string) User
 	Validate(login, pass string) bool
 }
 
@@ -77,6 +80,8 @@ type Mailer interface {
 	Threads(folder string) ([]Thread, error)
 	Mails(folder string) ([]Email, error)
 	Mail(path string) (Email, error)
+	Close(thread string) error
+	Commands() map[string]func(content, thread string) bool
 }
 
 type Gwi struct {
@@ -85,6 +90,7 @@ type Gwi struct {
 	handler *mux.Router
 	vault   Vault
 	mailer  Mailer
+	commands map[string]func(content, thread string) bool
 }
 
 var p = bluemonday.UGCPolicy()
@@ -105,11 +111,10 @@ var funcMapTempl = map[string]any{
 	"markdown": mdown,
 }
 
-func NewFromConfig(config Config, vault Vault, mailer Mailer) (Gwi, error) {
+func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
 		vault: vault, 
-		mailer: mailer,
 		pages: template.New("all").Funcs(funcMapTempl),
 	}
 
@@ -144,6 +149,10 @@ func NewFromConfig(config Config, vault Vault, mailer Mailer) (Gwi, error) {
 
 func (g *Gwi) Handle() http.Handler {
 	return g.handler
+}
+
+func (g Gwi) Commands() map[string]func(content, thread string) bool {
+	return g.commands
 }
 
 func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
@@ -259,7 +268,7 @@ func (g *Gwi) thread(user, repo string) func(section string) []Thread {
 		logger.Debug("getting threads for", section)
 
 		mailPath := path.Join(user, repo, "mail", section)
-		threads, err := g.mailer.Threads(mailPath)
+		threads, err := g.Threads(mailPath)
 		if err != nil {
 			logger.Debug("threads error:", err.Error())
 			return nil
@@ -274,7 +283,7 @@ func (g *Gwi) mails(user, repo string) func(thread string) []Email {
 		logger.Debug("getting mail for", thread)
 
 		dir := path.Join(user, repo, "mail", thread)
-		mail, err := g.mailer.Mails(dir)
+		mail, err := g.Mails(dir)
 		if err != nil {
 			logger.Error("read mail", err.Error())
 			return nil

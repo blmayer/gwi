@@ -11,7 +11,7 @@ import (
 
 type FileVault struct {
 	salt  string
-	Users []User
+	Users map[string]User
 }
 
 func NewFileVault(path, salt string) (FileVault, error) {
@@ -23,8 +23,18 @@ func NewFileVault(path, salt string) (FileVault, error) {
 	}
 	defer file.Close()
 
-	s.Users = []User{}
-	return s, json.NewDecoder(file).Decode(&s.Users)
+	s.Users = map[string]User{}
+	users := []User{}
+	err =  json.NewDecoder(file).Decode(&users)
+	if err != nil {
+		return s, err
+	}
+
+	for _, u := range users {
+		s.Users[u.Login] = u
+	}
+
+	return s, nil
 }
 
 func (f FileVault) Mix(data string) string {
@@ -33,12 +43,14 @@ func (f FileVault) Mix(data string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
+func (f FileVault) GetUser(login string) User {
+	return f.Users[login]
+}
+
 func (f FileVault) Validate(login, pass string) bool {
 	logger.Debug("getting login", login)
-	for _, u := range f.Users {
-		if u.Login == login && u.Pass == f.Mix(pass) {
-			return true
-		}
+	if f.Users[login].Pass == f.Mix(pass) {
+		return true
 	}
 	return false
 }
