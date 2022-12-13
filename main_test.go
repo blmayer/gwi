@@ -32,12 +32,17 @@ func Test_main(t *testing.T) {
 	}
 
 	mailer := g.NewMailServer()
-	g.commands = map[string]func(content, thread string) bool {
-		"close": func(content, thread string) bool {
+	g.commands = map[string]func(from, content, thread string) bool {
+		"close": func(from, content, thread string) bool {
+			user := strings.Split(thread, "/")[1]
+			if from != vault.GetUser(user).Email() {
+				return false
+			}
+
 			lineEnd := strings.Index(content, "\n")
 			line := strings.TrimSpace(content[:lineEnd])
 			if line == "!close" {
-				if err := mailer.Close(thread); err != nil {
+				if err := g.CloseThread(thread); err != nil {
 					logger.Error("mailer close", err.Error())
 					return false
 				}

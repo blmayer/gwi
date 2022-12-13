@@ -23,10 +23,10 @@ import (
 
 type ThreadStatus string
 
-type User struct {
-	Email string
-	Login string
-	Pass  string
+type User interface {
+	Email() string
+	Login() string
+	Pass()  string
 }
 
 type File struct {
@@ -68,11 +68,10 @@ type Config struct {
 	CGIRoot   string
 	CGIPrefix string
 	LogLevel  logger.Level
-	commands  map[string]func(content string) bool
 }
 
 type Vault interface {
-	GetUser(login string) any
+	GetUser(login string) User 
 	Validate(login, pass string) bool
 }
 
@@ -80,8 +79,7 @@ type Mailer interface {
 	Threads(folder string) ([]Thread, error)
 	Mails(folder string) ([]Email, error)
 	Mail(path string) (Email, error)
-	Close(thread string) error
-	Commands() map[string]func(content, thread string) bool
+	CloseThread(threadPath string) error
 }
 
 type Gwi struct {
@@ -90,7 +88,7 @@ type Gwi struct {
 	handler *mux.Router
 	vault   Vault
 	mailer  Mailer
-	commands map[string]func(content, thread string) bool
+	commands map[string]func(from, content, thread string) bool
 }
 
 var p = bluemonday.UGCPolicy()
@@ -149,10 +147,6 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 func (g *Gwi) Handle() http.Handler {
 	return g.handler
-}
-
-func (g Gwi) Commands() map[string]func(content, thread string) bool {
-	return g.commands
 }
 
 func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {

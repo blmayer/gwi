@@ -9,9 +9,27 @@ import (
 	"blmayer.dev/x/gwi/internal/logger"
 )
 
+type vaultUser struct {
+	email string
+	login string
+	pass string
+}
+
 type FileVault struct {
 	salt  string
 	Users map[string]User
+}
+
+func (v vaultUser) Email() string {
+	return v.email
+}
+
+func (v vaultUser) Login() string {
+	return v.login
+}
+
+func (v vaultUser) Pass() string {
+	return v.pass
 }
 
 func NewFileVault(path, salt string) (FileVault, error) {
@@ -24,14 +42,14 @@ func NewFileVault(path, salt string) (FileVault, error) {
 	defer file.Close()
 
 	s.Users = map[string]User{}
-	users := []User{}
+	users := []vaultUser{}
 	err =  json.NewDecoder(file).Decode(&users)
 	if err != nil {
 		return s, err
 	}
 
 	for _, u := range users {
-		s.Users[u.Login] = u
+		s.Users[u.login] = u
 	}
 
 	return s, nil
@@ -49,7 +67,7 @@ func (f FileVault) GetUser(login string) User {
 
 func (f FileVault) Validate(login, pass string) bool {
 	logger.Debug("getting login", login)
-	if f.Users[login].Pass == f.Mix(pass) {
+	if f.Users[login].Pass() == f.Mix(pass) {
 		return true
 	}
 	return false

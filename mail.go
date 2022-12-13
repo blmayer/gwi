@@ -29,7 +29,7 @@ func (g Gwi) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
 type Session struct{
 	config Config
 	vault Vault
-	commands map[string]func(content, thread string) bool
+	commands map[string]func(from, content, thread string) bool
 }
 
 func (s Session) AuthPlain(username, password string) error {
@@ -100,15 +100,10 @@ func (s Session) Data(r io.Reader) error {
 
 	// apply commands
 	go func() {
-		if from != s.vault.GetUser(user).Email {
-			logger.Debug("not running commands")
-			return
-		}
-
 		logger.Debug("applying commands")
 		c := string(content)
 		for com, f := range s.commands {
-			if f(c, mailDir) {
+			if f(from, c, mailDir) {
 				logger.Debug(com, "applied")
 			}
 		}
