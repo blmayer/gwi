@@ -2,8 +2,8 @@ package gwi
 
 import (
 	"net/http"
-	"testing"
 	"strings"
+	"testing"
 
 	"blmayer.dev/x/gwi/internal/logger"
 )
@@ -12,11 +12,11 @@ func Test_main(t *testing.T) {
 	logger.SetLevel(logger.DebugLevel)
 
 	cfg := Config{
-		Domain: "localhost",
-		PagesRoot: "templates",
+		Domain:      "localhost",
+		PagesRoot:   "templates",
 		MailAddress: ":2525",
-		Root:      "/home/blmayer/repos/gwi/git",
-		CGIRoot:   "/usr/lib/git-core/git-http-backend",
+		Root:        "/home/blmayer/repos/gwi/git",
+		CGIRoot:     "/usr/lib/git-core/git-http-backend",
 	}
 
 	vault, err := NewFileVault("users.json", "----xxx----")
@@ -24,6 +24,7 @@ func Test_main(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	t.Log(vault.Users)
 
 	g, err := NewFromConfig(cfg, vault)
 	if err != nil {
@@ -32,7 +33,7 @@ func Test_main(t *testing.T) {
 	}
 
 	mailer := g.NewMailServer()
-	g.commands = map[string]func(from, content, thread string) bool {
+	g.commands = map[string]func(from, content, thread string) bool{
 		"close": func(from, content, thread string) bool {
 			user := strings.Split(thread, "/")[1]
 			if from != vault.GetUser(user).Email() {
@@ -51,7 +52,7 @@ func Test_main(t *testing.T) {
 		},
 	}
 	t.Run(
-		"mail server", 
+		"mail server",
 		func(t *testing.T) {
 			t.Parallel()
 			t.Log("Starting mail server at", cfg.MailAddress)
@@ -61,7 +62,7 @@ func Test_main(t *testing.T) {
 		},
 	)
 
-	t.Log("Starting git server at :8080" )
+	t.Log("Starting git server at :8080")
 	if err := http.ListenAndServe(":8080", g.Handle()); err != nil {
 		t.Fatal(err)
 	}

@@ -10,9 +10,9 @@ import (
 )
 
 type vaultUser struct {
-	email string
-	login string
-	pass string
+	Address  string
+	Name     string
+	Password string
 }
 
 type FileVault struct {
@@ -21,19 +21,19 @@ type FileVault struct {
 }
 
 func (v vaultUser) Email() string {
-	return v.email
+	return v.Address
 }
 
 func (v vaultUser) Login() string {
-	return v.login
+	return v.Name
 }
 
 func (v vaultUser) Pass() string {
-	return v.pass
+	return v.Password
 }
 
 func NewFileVault(path, salt string) (FileVault, error) {
-	s := FileVault{salt: salt}
+	s := FileVault{salt: salt, Users: map[string]User{}}
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -43,13 +43,13 @@ func NewFileVault(path, salt string) (FileVault, error) {
 
 	s.Users = map[string]User{}
 	users := []vaultUser{}
-	err =  json.NewDecoder(file).Decode(&users)
+	err = json.NewDecoder(file).Decode(&users)
 	if err != nil {
 		return s, err
 	}
 
 	for _, u := range users {
-		s.Users[u.login] = u
+		s.Users[u.Name] = u
 	}
 
 	return s, nil

@@ -10,6 +10,7 @@ import (
 	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 
 	"github.com/gorilla/mux"
 )
@@ -65,10 +66,23 @@ func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Info("repo stat", err.Error(), "initializing repo")
 
 		os.Mkdir(repoDir, os.ModeDir|0o700)
-		if _, err := git.PlainInit(repoDir, true); err != nil {
+		r, err := git.PlainInit(repoDir, true)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		h := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
+		if err := r.Storer.SetReference(h); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		cfg, err := r.Config()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		cfg.Init.DefaultBranch = "main"
+		r.Storer.SetConfig(cfg)
 	}
 
 	env := []string{
