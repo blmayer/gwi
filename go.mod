@@ -3,12 +3,12 @@ module blmayer.dev/x/gwi
 go 1.19
 
 require (
+	github.com/EVANA-AG/parsemail v0.0.0-20220919120617-35274d2cfbc6
 	github.com/emersion/go-smtp v0.15.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/gomarkdown/markdown v0.0.0-20221013030248-663e2500819c
 	github.com/gorilla/mux v1.8.0
 	github.com/microcosm-cc/bluemonday v1.0.21
-	github.com/vraycc/go-parsemail v0.0.0-20221110135954-331ae329fca6
 )
 
 require (

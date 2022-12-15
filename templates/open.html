@@ -30,4 +30,16 @@
 	</small>
 </address>
 <blockquote>{{.Body | markdown}}</blockquote>
+{{if .Attachments}}
+<details>
+	<summary>
+		Attachments:
+	</summary>
+	<ul>
+		{{range .Attachments}}
+		<li><a href="data:{{.ContentType}};base64,{{.Data}}" target=_blank}>{{.Name}}</a></li>
+		{{end}}
+	</ul>
+</details>
+{{end}}
 {{end}}

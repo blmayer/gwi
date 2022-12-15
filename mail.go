@@ -1,16 +1,17 @@
 package gwi
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
-	"time"
-	"strings"
 	"path"
+	"strings"
+	"time"
 
 	"blmayer.dev/x/gwi/internal/logger"
+	"github.com/EVANA-AG/parsemail"
 	"github.com/emersion/go-smtp"
-	"github.com/vraycc/go-parsemail"
 )
 
 func (g Gwi) NewSession(_ *smtp.Conn) (smtp.Session, error) {
@@ -26,9 +27,9 @@ func (g Gwi) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
 }
 
 // A Session is returned after EHLO.
-type Session struct{
-	config Config
-	vault Vault
+type Session struct {
+	config   Config
+	vault    Vault
 	commands map[string]func(from, content, thread string) bool
 }
 
@@ -67,7 +68,7 @@ func (s Session) Data(r io.Reader) error {
 		println("wrong domain:", userAddress[1])
 		return fmt.Errorf("wrong domain")
 	}
-	
+
 	userRepo := strings.Split(userAddress[0], "/")
 	user, repo := userRepo[0], userRepo[1]
 	if _, err := os.Stat(path.Join(s.config.Root, user, repo)); err != nil {
@@ -159,7 +160,7 @@ func (g *Gwi) Threads(folder string) ([]Thread, error) {
 			continue
 		}
 		t := Thread{
-			Title: d.Name(), 
+			Title:   d.Name(),
 			LastMod: info.ModTime(),
 		}
 
@@ -209,14 +210,15 @@ func (g *Gwi) Mail(file string) (Email, error) {
 		logger.Error("email parse error:", err.Error())
 		return Email{}, err
 	}
-	
+	fmt.Printf("mail: %+v\n", mail)
+
 	email := Email{
-		To: mail.To[0].Address,
-		From: mail.From[0].Address,
-		Date: mail.Date,
-		Subject: mail.Subject,
-		Body: mail.TextBody,
-		Attachments: map[string][]byte{},
+		To:          mail.To[0].Address,
+		From:        mail.From[0].Address,
+		Date:        mail.Date,
+		Subject:     mail.Subject,
+		Body:        mail.TextBody,
+		Attachments: map[string]Attachment{},
 	}
 
 	if len(mail.Cc) > 0 {
@@ -230,7 +232,11 @@ func (g *Gwi) Mail(file string) (Email, error) {
 			continue
 		}
 
-		email.Attachments[a.Filename] = content
+		email.Attachments[a.Filename] = Attachment{
+			Name:        a.Filename,
+			ContentType: a.ContentType,
+			Data:        base64.StdEncoding.EncodeToString(content),
+		}
 	}
 	return email, nil
 }

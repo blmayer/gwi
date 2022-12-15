@@ -26,7 +26,7 @@ type ThreadStatus string
 type User interface {
 	Email() string
 	Login() string
-	Pass()  string
+	Pass() string
 }
 
 type File struct {
@@ -43,35 +43,41 @@ type Info struct {
 }
 
 type Thread struct {
-	Title string
+	Title   string
 	Creator string
 	LastMod time.Time
-	Lenght int
-	Status ThreadStatus
+	Lenght  int
+	Status  ThreadStatus
+}
+
+type Attachment struct {
+	Name        string
+	ContentType string
+	Data        string
 }
 
 type Email struct {
-	From string
-	To string
-	Cc string
-	Date time.Time
-	Subject string
-	Body string
-	Attachments map[string][]byte
+	From        string
+	To          string
+	Cc          string
+	Date        time.Time
+	Subject     string
+	Body        string
+	Attachments map[string]Attachment
 }
 
 type Config struct {
-	Domain    string
+	Domain      string
 	MailAddress string
-	PagesRoot string
-	Root      string
-	CGIRoot   string
-	CGIPrefix string
-	LogLevel  logger.Level
+	PagesRoot   string
+	Root        string
+	CGIRoot     string
+	CGIPrefix   string
+	LogLevel    logger.Level
 }
 
 type Vault interface {
-	GetUser(login string) User 
+	GetUser(login string) User
 	Validate(login, pass string) bool
 }
 
@@ -83,11 +89,11 @@ type Mailer interface {
 }
 
 type Gwi struct {
-	config  Config
-	pages   *template.Template
-	handler *mux.Router
-	vault   Vault
-	mailer  Mailer
+	config   Config
+	pages    *template.Template
+	handler  *mux.Router
+	vault    Vault
+	mailer   Mailer
 	commands map[string]func(from, content, thread string) bool
 }
 
@@ -112,8 +118,8 @@ var funcMapTempl = map[string]any{
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
-		vault: vault, 
-		pages: template.New("all").Funcs(funcMapTempl),
+		vault:  vault,
+		pages:  template.New("all").Funcs(funcMapTempl),
 	}
 
 	if os.Getenv("DEBUG") != "" {
@@ -251,7 +257,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func mdown(in string) template.HTML {	
+func mdown(in string) template.HTML {
 	safeText := p.Sanitize(in)
 	html := markdown.ToHTML([]byte(safeText), nil, nil)
 	return template.HTML(html)
@@ -285,7 +291,7 @@ func (g *Gwi) mails(user, repo string) func(thread string) []Email {
 
 		sort.Slice(
 			mail,
-			func(i, j int) bool { 
+			func(i, j int) bool {
 				return mail[i].Date.Before(mail[j].Date)
 			},
 		)
