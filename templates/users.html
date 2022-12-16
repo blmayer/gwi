@@ -9,7 +9,6 @@
 </ul>
 
 <h2>System status</h2>
-{{with sysinfo}}
 <table>
 	<tr><th>Metric</th><th>Value</th></tr>
 	<tr><td>Git Users</td><td>len users</td></tr>
@@ -18,11 +17,4 @@
 	<tr><td>Space used</td><td>{{.Used}} Mb</td></tr>
 	<tr><td>Space available</td><td>{{.Free}} Mb</td></tr>
 	{{end}}
-	<tr><td>Uptime</td><td>{{.Uptime}}h</td></tr>
-	<tr><td>Total RAM</td><td>{{.Totalram}}</td></tr>
-	<tr><td>Free RAM</td><td>{{.Freeram}}</td></tr>
-	<tr><td>Load</td><td>{{index .Loads 0}}</td></tr>
-	<tr><td>Load</td><td>{{index .Loads 1}}</td></tr>
-	<tr><td>Load</td><td>{{index .Loads 2}}</td></tr>
 </table>
-{{end}}

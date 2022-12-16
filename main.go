@@ -98,7 +98,7 @@ type Gwi struct {
 var p = bluemonday.UGCPolicy()
 
 var funcMapTempl = map[string]any{
-	"sysinfo":  sysInfo,
+	// "sysinfo":  sysInfo,
 	"usage":    diskUsage,
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
