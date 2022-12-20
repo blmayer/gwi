@@ -80,7 +80,15 @@ func (s Session) Data(r io.Reader) error {
 	start := strings.Index(email.Subject, "[")
 	title := strings.TrimSpace(email.Subject[start:])
 
-	mailDir := path.Join(s.config.Root, user, repo, "mail/open", title)
+	// check if already closed
+	mailDir := path.Join(s.config.Root, user, repo, "mail/closed", title)
+	if _, err := os.Stat(mailDir); err == nil {
+		println("closed thread already exists")
+		return fmt.Errorf("closed thread already exists")
+	}
+	
+
+	mailDir = path.Join(s.config.Root, user, repo, "mail/open", title)
 	err = os.MkdirAll(
 		mailDir,
 		os.ModeDir|0o700,
