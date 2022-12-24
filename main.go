@@ -79,21 +79,12 @@ type Vault interface {
 	Validate(login, pass string) bool
 }
 
-type Mailer interface {
-	Threads(folder string) ([]Thread, error)
-	Mails(folder string) ([]Email, error)
-	Mail(path string) (Email, error)
-	CloseThread(threadPath string) error
-}
-
 type Gwi struct {
-	config   Config
-	pages    *template.Template
-	handler  *mux.Router
-	vault    Vault
-	mailer   Mailer
-	commands map[string]func(from, content, thread string) bool
-	functions map[string] func(params ...any) any
+	config    Config
+	pages     *template.Template
+	handler   *mux.Router
+	vault     Vault
+	functions map[string]func(params ...any) any
 }
 
 var p = bluemonday.UGCPolicy()
@@ -240,18 +231,18 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	funcMap := map[string]any{
-		"users": g.users(),
-		"repos": g.repos(),
-		"head": g.head(head),
-		"desc": g.desc(repo),
-		"thread": g.thread(info.User, info.Repo),
-		"mails": g.mails(info.User, info.Repo),
+		"users":    g.users(),
+		"repos":    g.repos(),
+		"head":     g.head(head),
+		"desc":     g.desc(repo),
+		"thread":   g.thread(info.User, info.Repo),
+		"mails":    g.mails(info.User, info.Repo),
 		"branches": g.branches(repo),
-		"tags": g.tags(repo),
-		"commits": g.commits(repo),
-		"commit": g.commit(repo),
-		"tree": g.tree(repo),
-		"file": g.file(repo),
+		"tags":     g.tags(repo),
+		"commits":  g.commits(repo),
+		"commit":   g.commit(repo),
+		"tree":     g.tree(repo),
+		"file":     g.file(repo),
 	}
 	pages := g.pages.Funcs(funcMap)
 
