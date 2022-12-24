@@ -17,8 +17,8 @@ func (g *Gwi) commits(repo *git.Repository) func(ref plumbing.Hash) []*object.Co
 			return nil
 		}
 
-		commits := make([]*object.Commit, 0, 200)
-		for count := 200; count > 0; count-- {
+		commits := make([]*object.Commit, 0, 100)
+		for count := 100; count > 0; count-- {
 			c, _ := logs.Next()
 
 			if c == nil {
