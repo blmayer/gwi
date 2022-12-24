@@ -71,7 +71,7 @@ type Config struct {
 	CGIRoot     string
 	CGIPrefix   string
 	LogLevel    logger.Level
-	Functions   func(p ...any) any
+	Functions   map[string]func(p ...any) any
 }
 
 type Vault interface {
@@ -93,6 +93,7 @@ type Gwi struct {
 	vault    Vault
 	mailer   Mailer
 	commands map[string]func(from, content, thread string) bool
+	functions map[string] func(params ...any) any
 }
 
 var p = bluemonday.UGCPolicy()
@@ -119,15 +120,23 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
 		vault:  vault,
-		pages:  template.New("all").Funcs(funcMapTempl),
 	}
 
 	if os.Getenv("DEBUG") != "" {
 		logger.SetLevel(logger.DebugLevel)
 	}
 
-	r := mux.NewRouter()
+	// load functions
+	funcMap := map[string]any{}
+	for name, f := range funcMapTempl {
+		funcMap[name] = f
+	}
+	for name, f := range config.Functions {
+		funcMap[name] = f
+	}
+	gwi.pages = template.New("all").Funcs(funcMap)
 
+	r := mux.NewRouter()
 	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
 	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.GitCGIHandler)
@@ -164,12 +173,10 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 		Repo: vars["repo"],
 	}
 
-	funcMap := map[string]any{}
-	for name, f := range funcMapTempl {
-		funcMap[name] = f
+	funcMap := map[string]any{
+		"users": g.users(),
+		"repos": g.repos(),
 	}
-	funcMap["users"] = g.users()
-	funcMap["repos"] = g.repos()
 	pages := g.pages.Funcs(funcMap)
 
 	w.Header().Set("Content-Type", "text/html")
@@ -232,22 +239,20 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	funcMap := map[string]any{}
-	for name, f := range funcMapTempl {
-		funcMap[name] = f
+	funcMap := map[string]any{
+		"users": g.users(),
+		"repos": g.repos(),
+		"head": g.head(head),
+		"desc": g.desc(repo),
+		"thread": g.thread(info.User, info.Repo),
+		"mails": g.mails(info.User, info.Repo),
+		"branches": g.branches(repo),
+		"tags": g.tags(repo),
+		"commits": g.commits(repo),
+		"commit": g.commit(repo),
+		"tree": g.tree(repo),
+		"file": g.file(repo),
 	}
-	funcMap["users"] = g.users()
-	funcMap["repos"] = g.repos()
-	funcMap["head"] = g.head(head)
-	funcMap["desc"] = g.desc(repo)
-	funcMap["thread"] = g.thread(info.User, info.Repo)
-	funcMap["mails"] = g.mails(info.User, info.Repo)
-	funcMap["branches"] = g.branches(repo)
-	funcMap["tags"] = g.tags(repo)
-	funcMap["commits"] = g.commits(repo)
-	funcMap["commit"] = g.commit(repo)
-	funcMap["tree"] = g.tree(repo)
-	funcMap["file"] = g.file(repo)
 	pages := g.pages.Funcs(funcMap)
 
 	op := vars["op"]
