@@ -35,7 +35,7 @@ func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
 }
 
 func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("CGI handling", r.RequestURI)
+	logger.Debug("CGI handling", r.Method, r.RequestURI)
 
 	login, pass, ok := r.BasicAuth()
 	user := mux.Vars(r)["user"]

@@ -43,6 +43,8 @@ func (g *Gwi) tree(repo *git.Repository) func(ref plumbing.Hash) []File {
 			logger.Error("commit error:", err.Error())
 			return nil
 		}
+
+		logger.Debug("getting tree for commit", commit.Hash.String())
 		tree, err := commit.Tree()
 		if err != nil {
 			logger.Error("trees error:", err.Error())
@@ -51,6 +53,7 @@ func (g *Gwi) tree(repo *git.Repository) func(ref plumbing.Hash) []File {
 
 		var files []File
 		tree.Files().ForEach(func(f *object.File) error {
+			logger.Debug("getting", f.Name)
 			size, _ := tree.Size(f.Name)
 			files = append(files, File{ File: f, Size: size})
 			return nil

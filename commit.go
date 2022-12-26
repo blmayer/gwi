@@ -8,7 +8,32 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func (g *Gwi) commits(repo *git.Repository) func(ref plumbing.Hash) []*object.Commit {
+func (g *Gwi) commits(repo *git.Repository) func(ref plumbing.Hash) int {
+	return func(ref plumbing.Hash) int {
+		logger.Debug("getting commits for ref", ref.String())
+		logs, err := repo.Log(&git.LogOptions{From: ref})
+		if err != nil {
+			logger.Error("commits", err.Error())
+			return -1
+		}
+
+		count := 0
+		for {
+			c, err := logs.Next()
+			if err != nil {
+				logger.Error("next", err.Error())
+				return count
+			}
+
+			if c == nil {
+				return count
+			}
+			count++
+		}
+	}
+}
+
+func (g *Gwi) log(repo *git.Repository) func(ref plumbing.Hash) []*object.Commit {
 	return func(ref plumbing.Hash) []*object.Commit {
 		logger.Debug("getting log for ref", ref.String())
 		logs, err := repo.Log(&git.LogOptions{From: ref})
