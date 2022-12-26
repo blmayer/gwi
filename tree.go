@@ -34,6 +34,27 @@ func (g *Gwi) file(repo *git.Repository) func(ref plumbing.Hash, name string) st
 	}
 }
 
+func (g *Gwi) files(repo *git.Repository) func(ref plumbing.Hash) int {
+	return func(ref plumbing.Hash) int {
+		// files
+		logger.Debug("getting commit for ref", ref.String())
+		commit, err := repo.CommitObject(ref)
+		if err != nil {
+			logger.Error("commit error:", err.Error())
+			return -1
+		}
+
+		logger.Debug("getting tree for commit", commit.Hash.String())
+		tree, err := commit.Tree()
+		if err != nil {
+			logger.Error("trees error:", err.Error())
+			return -1
+		}
+
+		return len(tree.Entries)
+	}
+}
+
 func (g *Gwi) tree(repo *git.Repository) func(ref plumbing.Hash) []File {
 	return func(ref plumbing.Hash) []File {
 		// files

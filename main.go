@@ -104,6 +104,7 @@ var funcMapTempl = map[string]any{
 	"commits":  func(ref plumbing.Hash) int { return -1 },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
+	"files":     func(ref plumbing.Hash) int { return -1 },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": mdown,
 }
@@ -244,6 +245,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		"commits": g.commits(repo),
 		"commit": g.commit(repo),
 		"tree": g.tree(repo),
+		"files": g.files(repo),
 		"file": g.file(repo),
 	}
 	pages := g.pages.Funcs(funcMap)
