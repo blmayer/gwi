@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"time"
 
+	"blmayer.dev/x/dovel/interfaces/file"
 	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/gorilla/mux"
@@ -39,30 +39,6 @@ type Info struct {
 	Args    string
 }
 
-type Thread struct {
-	Title   string
-	Creator string
-	LastMod time.Time
-	Lenght  int
-	Status  ThreadStatus
-}
-
-type Attachment struct {
-	Name        string
-	ContentType string
-	Data        string
-}
-
-type Email struct {
-	From        string
-	To          string
-	Cc          string
-	Date        time.Time
-	Subject     string
-	Body        string
-	Attachments map[string]Attachment
-}
-
 type Config struct {
 	Domain      string
 	MailAddress string
@@ -84,6 +60,7 @@ type Gwi struct {
 	pages     *template.Template
 	handler   *mux.Router
 	vault     Vault
+	mailer    file.FileConfig
 	functions map[string]func(params ...any) any
 }
 
@@ -95,8 +72,8 @@ var funcMapTempl = map[string]any{
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
 	"head":     func() *plumbing.Reference { return nil },
-	"thread":   func(section string) []Thread { return nil },
-	"mails":    func(thread string) []Email { return nil },
+	"thread":   func(section string) []any { return nil },
+	"mails":    func(thread string) []any { return nil },
 	"desc":     func(ref plumbing.Hash) string { return "" },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tags":     func() []*plumbing.Reference { return nil },
@@ -113,6 +90,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
 		vault:  vault,
+		mailer: file.FileConfig{Root: config.Root},
 	}
 
 	if os.Getenv("DEBUG") != "" {
