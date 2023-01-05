@@ -21,22 +21,22 @@
 // letting you query the data you want in an efficient way. Currently we
 // export the following functions:
 //
-//  usage   
-//  users   
-//  repos   
-//  head    
-//  thread  
-//  mails   
-//  desc    
-//  branches
-//  tags    
-//  log 
-//  commits 
-//  commit  
-//  tree    
-//  files   
-//  file
-//  markdown
+//  - usage   
+//  - users   
+//  - repos   
+//  - head    
+//  - thread  
+//  - mails   
+//  - desc    
+//  - branches
+//  - tags    
+//  - log 
+//  - commits 
+//  - commit  
+//  - tree    
+//  - files   
+//  - file
+//  - markdown
 //
 // Which can be called on templates using the standard template syntax.
 //
@@ -47,7 +47,47 @@
 // gwi comes with 2 handlers: Main and List, which are meant to be used in
 // different situations. See their respective docs for their use.
 //
-// # Example
+// The default branch for git is main.
+//
+// # Examples
+//
+// The most simple way of using this is initializing and using the handle
+// function:
+//
+//  package main
+//
+//  import (
+//  	"net/http"
+//  
+//  	"blmayer.dev/gwi"
+//  )
+//  
+//  func main() {
+//  	// init user vault
+//  	v, err := NewFileVault("users.json", "--salt--")
+//  	// handle error
+//  	
+//  	// gwi config struct
+//  	c := gwi.Config{
+//  		Root: "path/to/git/folder",
+//  		PagesRoot: "path/to/html-templates",
+//  		...
+//  	}
+//  
+//  	g, _ := gwi.NewFromConfig(c, v)
+//  	// handle error
+//  
+//  	err := http.ListenAndServe(":8080", g.Handle())
+//  	// handle err
+//  }
+//
+// Another good example is [main_test.go].
+//
+// Using templates provided:
+//
+//  Repo has {{commits .Ref}} commits.
+//
+// Will print the number of commits on the repo.
 package gwi
 
 import (
@@ -125,6 +165,7 @@ type Gwi struct {
 
 var p = bluemonday.UGCPolicy()
 
+// FuncMapTempl gives the signatures for all functions available on templates.
 var FuncMapTempl = map[string]any{
 	// "sysinfo":  sysInfo,
 	"usage":    diskUsage,
@@ -190,6 +231,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	return gwi, err
 }
 
+// Handle returns all handlers defined here, it should be used to handle
+// requests, as this provides the list and main handlers in the correct path.
 func (g *Gwi) Handle() http.Handler {
 	return g.handler
 }

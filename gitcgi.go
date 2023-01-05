@@ -15,25 +15,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func (g *Gwi) Private(h http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		login, pass, ok := r.BasicAuth()
-		if !ok || login == "" || pass == "" {
-			w.Header().Set("WWW-Authenticate", "Basic")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		if !g.vault.Validate(login, pass) {
-			http.Error(w, "invalid login", http.StatusUnauthorized)
-			return
-		}
-
-		logger.Info("successful authentication")
-		h(w, r)
-	}
-}
-
+// GitCGIHandler is the interface with git CGI that handles git operations
+// like pull and push. To use this handler use the correct config options.
 func (g *Gwi) GitCGIHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("CGI handling", r.Method, r.RequestURI)
 
