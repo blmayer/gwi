@@ -7,7 +7,9 @@ import (
 	"sort"
 	"syscall"
 
+	"blmayer.dev/x/dovel/interfaces"
 	"blmayer.dev/x/gwi/internal/logger"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -61,12 +63,12 @@ func mdown(in string) template.HTML {
 	return template.HTML(safeHTML)
 }
 
-func (g *Gwi) thread(user, repo string) func(section string) []Thread {
-	return func(section string) []Thread {
+func (g *Gwi) thread(user, repo string) func(section string) []interfaces.Mailbox {
+	return func(section string) []interfaces.Mailbox {
 		logger.Debug("getting threads for", section)
 
 		mailPath := path.Join(user, repo, "mail", section)
-		threads, err := g.Threads(mailPath)
+		threads, err := g.mailer.Mailboxes(mailPath)
 		if err != nil {
 			logger.Debug("threads error:", err.Error())
 			return nil
@@ -76,12 +78,12 @@ func (g *Gwi) thread(user, repo string) func(section string) []Thread {
 	}
 }
 
-func (g *Gwi) mails(user, repo string) func(thread string) []Email {
-	return func(thread string) []Email {
+func (g *Gwi) mails(user, repo string) func(thread string) []interfaces.Email {
+	return func(thread string) []interfaces.Email {
 		logger.Debug("getting mail for", thread)
 
 		dir := path.Join(user, repo, "mail", thread)
-		mail, err := g.Mails(dir)
+		mail, err := g.mailer.Mails(dir)
 		if err != nil {
 			logger.Error("read mail", err.Error())
 			return nil

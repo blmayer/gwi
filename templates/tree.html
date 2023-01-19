@@ -15,7 +15,7 @@
     <tr>
         <td>{{.Mode}}</td>
         <td>{{.Size}}</td>
-	<td><a href="/{{$.User}}/{{$.Repo}}/files/{{$.Ref}}/{{.Name}}">{{.Name}}</a></td>
+	<td><a href="/{{$.User}}/{{$.Repo}}/files/{{.Name}}?ref={{$.Ref}}">{{.Name}}</a></td>
     </tr>
     {{end}}
 </table>

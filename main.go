@@ -1,3 +1,93 @@
+// gwi stands for Git Web Interface, so it lets you customize the appearance
+// of your git repositories using templates. gwi is intended to be run on
+// servers where your bare git repositories are located, so it can detect
+// and render them correctly.
+//
+// gwi works in a simple way: it is a web server, and your request's path
+// points which user and repo are selected, i.e.:
+//
+//  GET root/user/repo/action/args
+//
+// selects the repository named repo from the user named user. Those are
+// just hierarchical abstractions. Then the next folder in the path defines
+// the template it will run, in this case the action, so gwi will execute
+// a template named action.html with the selected repo information available.
+// Lastly, everything that comes after action is part of args, and it is passed
+// to templates under the Args field.
+//
+// # Template functions
+//
+// This package provides functions that you can call in your templates,
+// letting you query the data you want in an efficient way. Currently we
+// export the following functions:
+//
+//  - usage   
+//  - users   
+//  - repos   
+//  - head    
+//  - thread  
+//  - mails   
+//  - desc    
+//  - branches
+//  - tags    
+//  - log 
+//  - commits 
+//  - commit  
+//  - tree    
+//  - files   
+//  - file
+//  - markdown
+//
+// Which can be called on templates using the standard template syntax.
+//
+// To see complete details about them see [FuncMapTempl].
+//
+// # Handlers
+//
+// gwi comes with 2 handlers: Main and List, which are meant to be used in
+// different situations. See their respective docs for their use.
+//
+// The default branch for git is main.
+//
+// # Examples
+//
+// The most simple way of using this is initializing and using the handle
+// function:
+//
+//  package main
+//
+//  import (
+//  	"net/http"
+//  
+//  	"blmayer.dev/gwi"
+//  )
+//  
+//  func main() {
+//  	// init user vault
+//  	v, err := NewFileVault("users.json", "--salt--")
+//  	// handle error
+//  	
+//  	// gwi config struct
+//  	c := gwi.Config{
+//  		Root: "path/to/git/folder",
+//  		PagesRoot: "path/to/html-templates",
+//  		...
+//  	}
+//  
+//  	g, _ := gwi.NewFromConfig(c, v)
+//  	// handle error
+//  
+//  	err := http.ListenAndServe(":8080", g.Handle())
+//  	// handle err
+//  }
+//
+// Another good example is [main_test.go].
+//
+// Using templates provided:
+//
+//  Repo has {{commits .Ref}} commits.
+//
+// Will print the number of commits on the repo.
 package gwi
 
 import (
@@ -5,8 +95,8 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"time"
 
+	"blmayer.dev/x/dovel/interfaces/file"
 	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/gorilla/mux"
@@ -18,8 +108,8 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
-type ThreadStatus string
-
+// User interface represents what a user should provide at a minimum. This
+// interface is available on templates and is also used internaly.
 type User interface {
 	Email() string
 	Login() string
@@ -31,6 +121,8 @@ type File struct {
 	Size int64
 }
 
+// Info is the structure that is passed as data to templates being executed.
+// The values are filled with the selected repo and user given on the URL.
 type Info struct {
 	User    string
 	Repo    string
@@ -39,30 +131,9 @@ type Info struct {
 	Args    string
 }
 
-type Thread struct {
-	Title   string
-	Creator string
-	LastMod time.Time
-	Lenght  int
-	Status  ThreadStatus
-}
-
-type Attachment struct {
-	Name        string
-	ContentType string
-	Data        string
-}
-
-type Email struct {
-	From        string
-	To          string
-	Cc          string
-	Date        time.Time
-	Subject     string
-	Body        string
-	Attachments map[string]Attachment
-}
-
+// Config is used to configure the gwi application, things like Root, PagesRoot
+// and CGIRoot are the central part that make gwi work. Domain, MailAddress and
+// Functions are mostly used to enhance the information displayed on templates.
 type Config struct {
 	Domain      string
 	MailAddress string
@@ -74,6 +145,10 @@ type Config struct {
 	Functions   map[string]func(p ...any) any
 }
 
+// Vault is used to authenticate write calls to git repositories, the Vault
+// implementation [FileVault] is a simple example that uses salt and hashes
+// to store and validate users. In real applications you should use a better
+// approache and implement your own Vault interface.
 type Vault interface {
 	GetUser(login string) User
 	Validate(login, pass string) bool
@@ -84,25 +159,29 @@ type Gwi struct {
 	pages     *template.Template
 	handler   *mux.Router
 	vault     Vault
+	mailer    file.FileConfig
 	functions map[string]func(params ...any) any
 }
 
 var p = bluemonday.UGCPolicy()
 
-var funcMapTempl = map[string]any{
+// FuncMapTempl gives the signatures for all functions available on templates.
+var FuncMapTempl = map[string]any{
 	// "sysinfo":  sysInfo,
 	"usage":    diskUsage,
 	"users":    func() []string { return nil },
 	"repos":    func(user string) []string { return nil },
 	"head":     func() *plumbing.Reference { return nil },
-	"thread":   func(section string) []Thread { return nil },
-	"mails":    func(thread string) []Email { return nil },
+	"thread":   func(section string) []any { return nil },
+	"mails":    func(thread string) []any { return nil },
 	"desc":     func(ref plumbing.Hash) string { return "" },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tags":     func() []*plumbing.Reference { return nil },
-	"commits":  func(ref plumbing.Hash) []*object.Commit { return nil },
+	"log":  func(ref plumbing.Hash) []*object.Commit { return nil },
+	"commits":  func(ref plumbing.Hash) int { return -1 },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
+	"files":     func(ref plumbing.Hash) int { return -1 },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": mdown,
 }
@@ -111,6 +190,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
 		vault:  vault,
+		mailer: file.FileConfig{Root: config.Root},
 	}
 
 	if os.Getenv("DEBUG") != "" {
@@ -119,7 +199,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	// load functions
 	funcMap := map[string]any{}
-	for name, f := range funcMapTempl {
+	for name, f := range FuncMapTempl {
 		funcMap[name] = f
 	}
 	for name, f := range config.Functions {
@@ -151,10 +231,17 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	return gwi, err
 }
 
+// Handle returns all handlers defined here, it should be used to handle
+// requests, as this provides the list and main handlers in the correct path.
 func (g *Gwi) Handle() http.Handler {
 	return g.handler
 }
 
+// ListHandler is used for listing users, or repos for a user given in the URL
+// path, this handler is usefull for creating listings of projects, as this is
+// very light on reads, and can be executed more often. It populates the
+// template data with just User and Repo fields, along with 2 functions: users
+// and repos.
 func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running list handler with", vars)
@@ -181,6 +268,11 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// MainHandler is the handler used to display information about a repository.
+// It contains all functions defined it [FuncMapTempl] with the correct user
+// and repo selected; and provides the complete Info struct as data to the
+// template. This handler is used to display data like commits, files, branches
+// and tags about a given repo.
 func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running main handler with", vars)
@@ -219,6 +311,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Improve ref name, as it changes between invocations
 	if r.URL.Query().Get("ref") == "" {
 		info.Ref = head.Hash()
 		info.RefName = head.Name().Short()
@@ -238,11 +331,13 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		"thread":   g.thread(info.User, info.Repo),
 		"mails":    g.mails(info.User, info.Repo),
 		"branches": g.branches(repo),
-		"tags":     g.tags(repo),
-		"commits":  g.commits(repo),
-		"commit":   g.commit(repo),
-		"tree":     g.tree(repo),
-		"file":     g.file(repo),
+		"tags": g.tags(repo),
+		"log": g.log(repo),
+		"commits": g.commits(repo),
+		"commit": g.commit(repo),
+		"tree": g.tree(repo),
+		"files": g.files(repo),
+		"file": g.file(repo),
 	}
 	pages := g.pages.Funcs(funcMap)
 

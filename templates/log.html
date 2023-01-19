@@ -11,7 +11,7 @@
         <th>Author</th>
         <th>Message</th>
     </tr>
-    {{range commits .Ref}}
+    {{range log .Ref}}
     <tr>
         <td>{{.Author.When.String}}</td>
         <td>{{.Author.Name}}</td>
