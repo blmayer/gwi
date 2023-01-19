@@ -56,9 +56,9 @@ func diskUsage() Usage {
 // }
 
 func mdown(in string) template.HTML {
-	safeText := p.Sanitize(in)
-	html := markdown.ToHTML([]byte(safeText), nil, nil)
-	return template.HTML(html)
+	html := markdown.ToHTML([]byte(in), nil, nil)
+	safeHTML := p.Sanitize(string(html))
+	return template.HTML(safeHTML)
 }
 
 func (g *Gwi) thread(user, repo string) func(section string) []Thread {
