@@ -1,5 +1,23 @@
-This project delivers various functions to be used in your server, with that
-you can customize all pages and paths.
+GWI stands for Git Web Interface, that is it delivers a ready to use
+visualization and management tool atop of your git repositories.
+
+With GWI you can easily host your single user git platform customized
+to your needs. Some features are:
+
+- Easy to setup
+- Pages are templates you can customize
+- Lightweight
+- Free
+- Under active development
+
+This project is in early stages of development, and some features may be
+missing. If you want to request a feature or report a bug, follow the
+instructions at (the author's git)[https:blmayer.dev/x].
+
+For more information on how to use gwi, please consult our 
+(go docs)[https://pkg.go.dev/blmayer.dev/x/gwi].
+
+Thank you!
 
 
 # Usage
