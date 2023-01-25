@@ -15,6 +15,17 @@
 // Lastly, everything that comes after action is part of args, and it is passed
 // to templates under the Args field.
 //
+// Some paths have special purposes and cannot be used by templates, they are:
+//
+//   - /user/repo/zip: for making archives
+//   - /user/repo/HEAD: this and the following are used git gitcgi
+//   - /user/repo/info/*
+//   - /user/repo/objects/info
+//   - /user/repo/git-receive-pack
+//   - /user/repo/git-upload-pack
+//
+// Creating template files with the names above will disable some features.
+//
 // # Template functions
 //
 // This package provides functions that you can call in your templates,
