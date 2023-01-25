@@ -1,7 +1,7 @@
 GWI stands for Git Web Interface, that is it delivers a ready to use
 visualization and management tool atop of your git repositories.
 
-With GWI you can easily host your single user git platform customized
+With GWI you can easily host your own git platform customized
 to your needs. Some features are:
 
 - Easy to setup
