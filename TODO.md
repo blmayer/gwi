@@ -5,5 +5,6 @@
 - ~~Add tags support~~
 - Improve theme
 - ~~Support collaboration~~
+- ~~Add zip snapshot handler~~
 - Use folder creation time for sorting
 - Add support for commands on threads via email
