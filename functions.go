@@ -38,24 +38,24 @@ func diskUsage() Usage {
 	}
 }
 
-func sysInfo() syscall.Sysinfo_t {
-	sysinfo := syscall.Sysinfo_t{}
-	err := syscall.Sysinfo(&sysinfo)
-	if err != nil {
-		logger.Error("sysinfo:", err)
-	}
-
-	sysinfo.Uptime /= 60 * 60
-
-	mb := uint64(1024 * 1024)
-	sysinfo.Totalram /= mb
-	sysinfo.Freeram /= mb
-	sysinfo.Bufferram /= mb
-	sysinfo.Sharedram /= mb
-	sysinfo.Totalswap /= mb
-	sysinfo.Freeswap /= mb
-	return sysinfo
-}
+// func sysInfo() syscall.Sysinfo_t {
+// 	sysinfo := syscall.Sysinfo_t{}
+// 	err := syscall.Sysinfo(&sysinfo)
+// 	if err != nil {
+// 		logger.Error("sysinfo:", err)
+// 	}
+//
+// 	sysinfo.Uptime /= 60 * 60
+//
+// 	mb := uint64(1024 * 1024)
+// 	sysinfo.Totalram /= mb
+// 	sysinfo.Freeram /= mb
+// 	sysinfo.Bufferram /= mb
+// 	sysinfo.Sharedram /= mb
+// 	sysinfo.Totalswap /= mb
+// 	sysinfo.Freeswap /= mb
+// 	return sysinfo
+// }
 
 func mdown(in string) template.HTML {
 	html := markdown.ToHTML([]byte(in), nil, nil)
