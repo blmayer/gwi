@@ -12,10 +12,10 @@ to your needs. Some features are:
 
 This project is in early stages of development, and some features may be
 missing. If you want to request a feature or report a bug, follow the
-instructions at (the author's git)[https:blmayer.dev/x].
+instructions at [the author's git](https:blmayer.dev/x).
 
 For more information on how to use gwi, please consult our 
-(go docs)[https://pkg.go.dev/blmayer.dev/x/gwi].
+[go docs](https://pkg.go.dev/blmayer.dev/x/gwi).
 
 Thank you!
 
