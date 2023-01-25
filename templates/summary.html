@@ -19,11 +19,19 @@
 
 <p>{{commits .Ref}} commits | {{files .Ref}} files</p>
 
-<p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
+<p>
+	<b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b>
+	<a style="float:right" href="/{{.User}}/{{.Repo}}/zip?ref={{.Ref}}" download="{{.Repo}}">zip</a>
+</p>
 <hr>
 
 {{with file .Ref "README.md"}}
 	<h2>Readme</h2>
+	{{markdown .}}
+{{end}}
+
+{{with file .Ref "TODO.md"}}
+	<h2>TODO</h2>
 	{{markdown .}}
 {{end}}
 

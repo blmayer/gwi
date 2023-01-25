@@ -6,7 +6,7 @@
 // gwi works in a simple way: it is a web server, and your request's path
 // points which user and repo are selected, i.e.:
 //
-//  GET root/user/repo/action/args
+//	GET root/user/repo/action/args
 //
 // selects the repository named repo from the user named user. Those are
 // just hierarchical abstractions. Then the next folder in the path defines
@@ -21,22 +21,22 @@
 // letting you query the data you want in an efficient way. Currently we
 // export the following functions:
 //
-//  - usage   
-//  - users   
-//  - repos   
-//  - head    
-//  - thread  
-//  - mails   
-//  - desc    
-//  - branches
-//  - tags    
-//  - log 
-//  - commits 
-//  - commit  
-//  - tree    
-//  - files   
-//  - file
-//  - markdown
+//   - usage
+//   - users
+//   - repos
+//   - head
+//   - thread
+//   - mails
+//   - desc
+//   - branches
+//   - tags
+//   - log
+//   - commits
+//   - commit
+//   - tree
+//   - files
+//   - file
+//   - markdown
 //
 // Which can be called on templates using the standard template syntax.
 //
@@ -54,43 +54,44 @@
 // The most simple way of using this is initializing and using the handle
 // function:
 //
-//  package main
+//	package main
 //
-//  import (
-//  	"net/http"
-//  
-//  	"blmayer.dev/gwi"
-//  )
-//  
-//  func main() {
-//  	// init user vault
-//  	v, err := NewFileVault("users.json", "--salt--")
-//  	// handle error
-//  	
-//  	// gwi config struct
-//  	c := gwi.Config{
-//  		Root: "path/to/git/folder",
-//  		PagesRoot: "path/to/html-templates",
-//  		...
-//  	}
-//  
-//  	g, _ := gwi.NewFromConfig(c, v)
-//  	// handle error
-//  
-//  	err := http.ListenAndServe(":8080", g.Handle())
-//  	// handle err
-//  }
+//	import (
+//		"net/http"
+//
+//		"blmayer.dev/gwi"
+//	)
+//
+//	func main() {
+//		// init user vault
+//		v, err := NewFileVault("users.json", "--salt--")
+//		// handle error
+//
+//		// gwi config struct
+//		c := gwi.Config{
+//			Root: "path/to/git/folder",
+//			PagesRoot: "path/to/html-templates",
+//			...
+//		}
+//
+//		g, _ := gwi.NewFromConfig(c, v)
+//		// handle error
+//
+//		err := http.ListenAndServe(":8080", g.Handle())
+//		// handle err
+//	}
 //
 // Another good example is [main_test.go].
 //
 // Using templates provided:
 //
-//  Repo has {{commits .Ref}} commits.
+//	Repo has {{commits .Ref}} commits.
 //
 // Will print the number of commits on the repo.
 package gwi
 
 import (
+	"archive/zip"
 	"html/template"
 	"net/http"
 	"os"
@@ -177,11 +178,11 @@ var FuncMapTempl = map[string]any{
 	"desc":     func(ref plumbing.Hash) string { return "" },
 	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
 	"tags":     func() []*plumbing.Reference { return nil },
-	"log":  func(ref plumbing.Hash) []*object.Commit { return nil },
+	"log":      func(ref plumbing.Hash) []*object.Commit { return nil },
 	"commits":  func(ref plumbing.Hash) int { return -1 },
 	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
 	"tree":     func(ref plumbing.Hash) []File { return nil },
-	"files":     func(ref plumbing.Hash) int { return -1 },
+	"files":    func(ref plumbing.Hash) int { return -1 },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": mdown,
 }
@@ -216,6 +217,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	r.HandleFunc("/", gwi.ListHandler)
 	r.HandleFunc("/{user}", gwi.ListHandler)
+	r.HandleFunc("/{user}/{repo}/zip", gwi.zipHandler)
+	r.HandleFunc("/{user}/{repo}/{op}/{args:.*}", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}/{op}/{args:.*}", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}/{op}", gwi.MainHandler)
 	r.HandleFunc("/{user}/{repo}/", gwi.MainHandler)
@@ -331,13 +334,13 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 		"thread":   g.thread(info.User, info.Repo),
 		"mails":    g.mails(info.User, info.Repo),
 		"branches": g.branches(repo),
-		"tags": g.tags(repo),
-		"log": g.log(repo),
-		"commits": g.commits(repo),
-		"commit": g.commit(repo),
-		"tree": g.tree(repo),
-		"files": g.files(repo),
-		"file": g.file(repo),
+		"tags":     g.tags(repo),
+		"log":      g.log(repo),
+		"commits":  g.commits(repo),
+		"commit":   g.commit(repo),
+		"tree":     g.tree(repo),
+		"files":    g.files(repo),
+		"file":     g.file(repo),
 	}
 	pages := g.pages.Funcs(funcMap)
 
@@ -349,5 +352,79 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	if err := pages.ExecuteTemplate(w, op+".html", info); err != nil {
 		logger.Error("execute error:", err.Error())
+	}
+}
+
+func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	logger.Debug("running zip handler with", vars)
+
+	info := Info{
+		User: vars["user"],
+		Repo: vars["repo"],
+		Ref:  plumbing.NewHash(r.URL.Query().Get("ref")),
+	}
+	repoDir := path.Join(g.config.Root, info.User, info.Repo)
+
+	repo, err := git.PlainOpen(repoDir)
+	if err != nil {
+		logger.Error("git PlainOpen error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if r.URL.Query().Get("ref") == "" {
+		head, err := repo.Head()
+		if err != nil {
+			logger.Error("git head error:", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		info.Ref = head.Hash()
+	}
+	commit, err := repo.CommitObject(info.Ref)
+	if err != nil {
+		logger.Error("commit error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	logger.Debug("getting tree for commit", commit.Hash.String())
+	tree, err := commit.Tree()
+	if err != nil {
+		logger.Error("trees error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	arc := zip.NewWriter(w)
+	tree.Files().ForEach(func(f *object.File) error {
+		logger.Debug("getting", f.Name)
+		z, err := arc.Create(f.Name)
+		if err != nil {
+			logger.Error("create file error:", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		content, err := f.Contents()
+		if err != nil {
+			logger.Error("content error:", err.Error())
+			return err
+		}
+
+		_, err = z.Write([]byte(content))
+		if err != nil {
+			logger.Error("write file error:", err.Error())
+			return err
+		}
+		return nil
+	})
+
+	err = arc.Close()
+	if err != nil {
+		logger.Error("close file error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
