@@ -136,7 +136,7 @@ func (g *Gwi) ReceivePackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "reference decode: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	upr.Capabilities.Add("no-thin")
 
 	res, err := sess.ReceivePack(r.Context(), upr)
 	if err != nil {
