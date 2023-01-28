@@ -58,6 +58,7 @@ func (g *Gwi) InfoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		[]byte("# service="+service),
 		pktline.Flush,
 	}
+	refs.Capabilities.Add("no-thin")
 
 	w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
 	if err := refs.Encode(w); err != nil {
@@ -136,7 +137,6 @@ func (g *Gwi) ReceivePackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "reference decode: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	upr.Capabilities.Add("no-thin")
 
 	res, err := sess.ReceivePack(r.Context(), upr)
 	if err != nil {
@@ -150,7 +150,7 @@ func (g *Gwi) ReceivePackHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("encode response", err.Error())
 		http.Error(w, "encode response", http.StatusInternalServerError)
 	}
-	logger.Debug("sent", res.CommandStatuses)
+	logger.Debug("sent", *res)
 }
 
 func (g *Gwi) UploadPackHandler(w http.ResponseWriter, r *http.Request) {
