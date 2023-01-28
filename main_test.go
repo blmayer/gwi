@@ -15,7 +15,6 @@ func Test_main(t *testing.T) {
 		PagesRoot:   "templates",
 		MailAddress: ":2525",
 		Root:        "/home/blmayer/repos/gwi/git",
-		CGIRoot:     "/usr/lib/git-core/git-http-backend",
 	}
 
 	vault, err := NewFileVault("users.json", "----xxx----")

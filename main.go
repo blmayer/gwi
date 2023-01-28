@@ -18,9 +18,7 @@
 // Some paths have special purposes and cannot be used by templates, they are:
 //
 //   - /user/repo/zip: for making archives
-//   - /user/repo/HEAD: this and the following are used git gitcgi
-//   - /user/repo/info/*
-//   - /user/repo/objects/info
+//   - /user/repo/info/refs: this and the following are used by git
 //   - /user/repo/git-receive-pack
 //   - /user/repo/git-upload-pack
 //
@@ -143,16 +141,14 @@ type Info struct {
 	Args    string
 }
 
-// Config is used to configure the gwi application, things like Root, PagesRoot
-// and CGIRoot are the central part that make gwi work. Domain, MailAddress and
+// Config is used to configure the gwi application, things like Root and
+// PagesRoot are the central part that make gwi work. Domain, MailAddress and
 // Functions are mostly used to enhance the information displayed on templates.
 type Config struct {
 	Domain      string
 	MailAddress string
 	PagesRoot   string
 	Root        string
-	CGIRoot     string
-	CGIPrefix   string
 	LogLevel    logger.Level
 	Functions   map[string]func(p ...any) any
 }
@@ -220,11 +216,12 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi.pages = template.New("all").Funcs(funcMap)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/{user}/{repo}/info/{service}", gwi.GitCGIHandler)
-	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.GitCGIHandler)
-	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.GitCGIHandler)
-	r.HandleFunc("/{user}/{repo}/objects/info", gwi.GitCGIHandler)
-	r.HandleFunc("/{user}/{repo}/HEAD", gwi.GitCGIHandler)
+	r.HandleFunc("/{user}/{repo}/info/refs", gwi.InfoRefsHandler).
+	Queries("service", "{service}")
+	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.ReceivePackHandler)
+	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.UploadPackHandler)
+	//r.HandleFunc("/{user}/{repo}/objects/info", gwi.InfoHandler)
+	//r.HandleFunc("/{user}/{repo}/HEAD", gwi.HeadHandler)
 
 	r.HandleFunc("/", gwi.ListHandler)
 	r.HandleFunc("/{user}", gwi.ListHandler)
