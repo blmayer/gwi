@@ -176,7 +176,7 @@ func (g *Gwi) UploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	upr := packp.NewUploadPackRequest()
 	if err := upr.Decode(r.Body); err != nil {
 		logger.Error("upload decode", err.Error())
-		http.Error(w, "upload decode: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "upload decode: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
