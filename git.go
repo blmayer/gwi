@@ -196,3 +196,40 @@ func (g *Gwi) UploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("sent", res.ServerResponse)
 }
 
+func (g *Gwi) HeadHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Debug("git handling", r.Method, r.RequestURI)
+
+	vars := mux.Vars(r)
+	repoDir := path.Join(g.config.Root, vars["user"], vars["repo"])
+
+	repo, err := git.PlainOpen(repoDir)
+	if err != nil {
+		logger.Error("git PlainOpen error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	head, err := repo.Head()
+	if err != nil {
+		logger.Error("git head error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write([]byte(head.Hash().String()))
+}
+
+func (g *Gwi) InfoHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Debug("git handling", r.Method, r.RequestURI)
+
+	vars := mux.Vars(r)
+	objPath := path.Join(
+		g.config.Root, 
+		vars["user"],
+		vars["repo"], 
+		"objects", 
+		vars["obj"],
+	)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	http.ServeFile(w, r, objPath)
+}

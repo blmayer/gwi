@@ -220,8 +220,8 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	Queries("service", "{service}")
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.ReceivePackHandler)
 	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.UploadPackHandler)
-	//r.HandleFunc("/{user}/{repo}/objects/info", gwi.InfoHandler)
-	//r.HandleFunc("/{user}/{repo}/HEAD", gwi.HeadHandler)
+	r.HandleFunc("/{user}/{repo}/objects/{obj:.*}", gwi.InfoHandler)
+	r.HandleFunc("/{user}/{repo}/HEAD", gwi.HeadHandler)
 
 	r.HandleFunc("/", gwi.ListHandler)
 	r.HandleFunc("/{user}", gwi.ListHandler)
