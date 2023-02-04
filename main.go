@@ -24,6 +24,13 @@
 //
 // Creating template files with the names above will disable some features.
 //
+// # User authentication
+//
+// gwi currently only supports HTTP Basic flow, authorization/authentication
+// is only needed in the git-recive-pack handler. For user validation this
+// project provides the [Vault] interface, which you should implement. Consult
+// the [FileVault] struct for an example.
+//
 // # Template functions
 //
 // This package provides functions that you can call in your templates,
@@ -162,6 +169,8 @@ type Vault interface {
 	Validate(login, pass string) bool
 }
 
+// GWI is the git instance, it exports the handlers that are used to handle
+// git requests
 type Gwi struct {
 	config    Config
 	pages     *template.Template
@@ -216,12 +225,12 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi.pages = template.New("all").Funcs(funcMap)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/{user}/{repo}/info/refs", gwi.InfoRefsHandler).
+	r.HandleFunc("/{user}/{repo}/info/refs", gwi.infoRefsHandler).
 	Queries("service", "{service}")
-	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.ReceivePackHandler)
-	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.UploadPackHandler)
-	r.HandleFunc("/{user}/{repo}/objects/{obj:.*}", gwi.InfoHandler)
-	r.HandleFunc("/{user}/{repo}/HEAD", gwi.HeadHandler)
+	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.receivePackHandler)
+	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.uploadPackHandler)
+	r.HandleFunc("/{user}/{repo}/objects/{obj:.*}", gwi.infoHandler)
+	r.HandleFunc("/{user}/{repo}/HEAD", gwi.headHandler)
 
 	r.HandleFunc("/", gwi.ListHandler)
 	r.HandleFunc("/{user}", gwi.ListHandler)

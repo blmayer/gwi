@@ -21,7 +21,7 @@ import (
 
 // GitHandler is the interface with git that handles git operations
 // like pull and push. To use this handler use the correct config options.
-func (g *Gwi) InfoRefsHandler(w http.ResponseWriter, r *http.Request) {
+func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("git handling", r.Method, r.RequestURI)
 
 	user := mux.Vars(r)["user"]
@@ -69,7 +69,7 @@ func (g *Gwi) InfoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("sent", refs.References)
 }
 
-func (g *Gwi) ReceivePackHandler(w http.ResponseWriter, r *http.Request) {
+func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("git handling", r.Method, r.RequestURI)
 
 	login, pass, ok := r.BasicAuth()
@@ -153,7 +153,7 @@ func (g *Gwi) ReceivePackHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("sent", *res)
 }
 
-func (g *Gwi) UploadPackHandler(w http.ResponseWriter, r *http.Request) {
+func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("git handling", r.Method, r.RequestURI)
 
 	user := mux.Vars(r)["user"]
@@ -196,7 +196,7 @@ func (g *Gwi) UploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("sent", res.ServerResponse)
 }
 
-func (g *Gwi) HeadHandler(w http.ResponseWriter, r *http.Request) {
+func (g *Gwi) headHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("git handling", r.Method, r.RequestURI)
 
 	vars := mux.Vars(r)
@@ -218,7 +218,7 @@ func (g *Gwi) HeadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(head.Hash().String()))
 }
 
-func (g *Gwi) InfoHandler(w http.ResponseWriter, r *http.Request) {
+func (g *Gwi) infoHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("git handling", r.Method, r.RequestURI)
 
 	vars := mux.Vars(r)
