@@ -66,7 +66,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "encode refs error", http.StatusInternalServerError)
 		return
 	}
-	logger.Debug("sent", refs.References)
+	logger.Debug("sent", refs.References, *refs.Capabilities)
 }
 
 func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
@@ -137,6 +137,7 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "reference decode: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	logger.Debug("request:", upr.Commands, *upr.Capabilities)
 
 	res, err := sess.ReceivePack(r.Context(), upr)
 	if err != nil {
@@ -150,7 +151,7 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("encode response", err.Error())
 		http.Error(w, "encode response", http.StatusInternalServerError)
 	}
-	logger.Debug("sent", *res)
+	logger.Debug("sent", *res, res.CommandStatuses)
 }
 
 func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +180,7 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upload decode: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	logger.Debug("request:", upr.Wants, *upr.Capabilities)
 
 	res, err := sess.UploadPack(r.Context(), upr)
 	if err != nil {
@@ -193,7 +194,7 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("encode response", err.Error())
 		http.Error(w, "encode response", http.StatusInternalServerError)
 	}
-	logger.Debug("sent", res.ServerResponse)
+	logger.Debug("sent", res.ServerResponse, res.ACKs)
 }
 
 func (g *Gwi) headHandler(w http.ResponseWriter, r *http.Request) {
