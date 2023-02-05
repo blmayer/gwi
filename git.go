@@ -1,7 +1,9 @@
 package gwi
 
 import (
+	"io"
 	"net/http"
+	"compress/gzip"
 	"os"
 	"path"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/format/pktline"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/server"
@@ -59,8 +62,10 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		pktline.Flush,
 	}
 	refs.Capabilities.Add("no-thin")
+	refs.Capabilities.Add(capability.NoDone)
 
 	w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
+	w.Header().Set("Accept-Encoding", "identity")
 	if err := refs.Encode(w); err != nil {
 		logger.Error("encode refs", err.Error())
 		http.Error(w, "encode refs error", http.StatusInternalServerError)
@@ -174,8 +179,22 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var body io.Reader
+	switch r.Header.Get("Content-Encoding") {
+	case "gzip":
+		body, err = gzip.NewReader(r.Body)
+		if err != nil {
+			logger.Error(err) 
+			w.Header().Add("Accept-encoding", "identity")
+			http.Error(w, "", http.StatusUnsupportedMediaType)
+			return
+		}
+	case "identity", "":
+		body = r.Body
+	}
+
 	upr := packp.NewUploadPackRequest()
-	if err := upr.Decode(r.Body); err != nil {
+	if err := upr.Decode(body); err != nil {
 		logger.Error("upload decode", err.Error())
 		http.Error(w, "upload decode: "+err.Error(), http.StatusBadRequest)
 		return
