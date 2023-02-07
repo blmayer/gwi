@@ -176,7 +176,7 @@ type Gwi struct {
 	pages     *template.Template
 	handler   *mux.Router
 	vault     Vault
-	mailer    file.FileConfig
+	mailer    file.FileHandler
 	functions map[string]func(params ...any) any
 }
 
@@ -207,7 +207,6 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
 		config: config,
 		vault:  vault,
-		mailer: file.FileConfig{Root: config.Root},
 	}
 
 	if os.Getenv("DEBUG") != "" {
@@ -224,9 +223,19 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	}
 	gwi.pages = template.New("all").Funcs(funcMap)
 
+	// mail
+	var err error
+	gwi.mailer, err = file.NewFileHandler(
+		file.FileConfig{Root: config.Root},
+		funcMap,
+	)
+	if err != nil {
+		logger.Error("new mailer error", err.Error())
+	}
+
 	r := mux.NewRouter()
 	r.HandleFunc("/{user}/{repo}/info/refs", gwi.infoRefsHandler).
-	Queries("service", "{service}")
+		Queries("service", "{service}")
 	r.HandleFunc("/{user}/{repo}/git-receive-pack", gwi.receivePackHandler)
 	r.HandleFunc("/{user}/{repo}/git-upload-pack", gwi.uploadPackHandler)
 	r.HandleFunc("/{user}/{repo}/objects/{obj:.*}", gwi.infoHandler)
@@ -244,7 +253,6 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	gwi.handler = r
 
 	// read templates
-	var err error
 	logger.Debug("parsing templates...")
 	gwi.pages, err = gwi.pages.ParseGlob(path.Join(config.PagesRoot, "*.html"))
 
