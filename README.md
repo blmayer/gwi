@@ -6,6 +6,7 @@ to your needs. Some features are:
 
 - Easy to setup
 - Pages are templates you can customize
+- Does not depend on git or CGI scripts
 - Lightweight
 - Free
 - Under active development

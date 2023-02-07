@@ -1,9 +1,9 @@
 - ~~Typeset markdown~~
-- Add todo section from TODO file
+- ~~Add todo section from TODO file~~
 - Improve diff view
 - ~~Suport tree for other branches/commits~~
 - ~~Add tags support~~
-- Improve theme
+- Improve theme?
 - ~~Support collaboration~~
 - ~~Add zip snapshot handler~~
 - Use folder creation time for sorting

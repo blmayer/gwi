@@ -1,9 +1,9 @@
 package gwi
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
-	"compress/gzip"
 	"os"
 	"path"
 
@@ -14,8 +14,8 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/format/pktline"
-	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/server"
 
@@ -41,6 +41,48 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	var sess transport.Session
 	switch service {
 	case "git-receive-pack":
+		// needs auth
+		login, pass, ok := r.BasicAuth()
+		if !ok || login == "" || pass == "" {
+			w.Header().Set("WWW-Authenticate", "Basic")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if !g.vault.Validate(login, pass) {
+			http.Error(w, "invalid login", http.StatusUnauthorized)
+			return
+		}
+		if user != login {
+			http.Error(w, "invalid repo", http.StatusUnauthorized)
+			return
+		}
+		logger.Info("successful authentication")
+
+		// create repo if it doesn't exists
+		repoDir := path.Join(g.config.Root, user, repo)
+		if _, err := os.Stat(repoDir); err != nil {
+			logger.Info("repo stat", err.Error(), "initializing repo")
+
+			os.Mkdir(repoDir, os.ModeDir|0o700)
+			r, err := git.PlainInit(repoDir, true)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			h := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
+			if err := r.Storer.SetReference(h); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			cfg, err := r.Config()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			cfg.Init.DefaultBranch = "main"
+			r.Storer.SetConfig(cfg)
+		}
+
 		sess, err = gitServer.NewReceivePackSession(end, nil)
 	case "git-upload-pack":
 		sess, err = gitServer.NewUploadPackSession(end, nil)
@@ -58,10 +100,11 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	refs.Prefix = [][]byte{
-		[]byte("# service="+service),
+		[]byte("# service=" + service),
 		pktline.Flush,
 	}
 	refs.Capabilities.Add("no-thin")
+	refs.Capabilities.Add(capability.NoProgress)
 	refs.Capabilities.Add(capability.NoDone)
 
 	w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
@@ -85,42 +128,15 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-
 	if !g.vault.Validate(login, pass) {
 		http.Error(w, "invalid login", http.StatusUnauthorized)
 		return
 	}
-	logger.Info("successful authentication")
-
 	if user != login {
 		http.Error(w, "invalid repo", http.StatusUnauthorized)
 		return
 	}
-
-	// create repo if it doesn't exists
-	repoDir := path.Join(g.config.Root, user, repo)
-	if _, err := os.Stat(repoDir); err != nil {
-		logger.Info("repo stat", err.Error(), "initializing repo")
-
-		os.Mkdir(repoDir, os.ModeDir|0o700)
-		r, err := git.PlainInit(repoDir, true)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		h := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
-		if err := r.Storer.SetReference(h); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		cfg, err := r.Config()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		cfg.Init.DefaultBranch = "main"
-		r.Storer.SetConfig(cfg)
-	}
+	logger.Info("successful authentication")
 
 	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
 	end, err := transport.NewEndpoint(user + "/" + repo)
@@ -184,13 +200,16 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	case "gzip":
 		body, err = gzip.NewReader(r.Body)
 		if err != nil {
-			logger.Error(err) 
 			w.Header().Add("Accept-encoding", "identity")
-			http.Error(w, "", http.StatusUnsupportedMediaType)
+			http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
 			return
 		}
 	case "identity", "":
 		body = r.Body
+	default:
+		w.Header().Add("Accept-encoding", "identity,gzip")
+		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		return
 	}
 
 	upr := packp.NewUploadPackRequest()
@@ -243,10 +262,10 @@ func (g *Gwi) infoHandler(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	objPath := path.Join(
-		g.config.Root, 
+		g.config.Root,
 		vars["user"],
-		vars["repo"], 
-		"objects", 
+		vars["repo"],
+		"objects",
 		vars["obj"],
 	)
 
