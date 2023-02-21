@@ -266,7 +266,7 @@ func (g *Gwi) Handle() http.Handler {
 }
 
 // ListHandler is used for listing users, or repos for a user given in the URL
-// path, this handler is usefull for creating listings of projects, as this is
+// path, this handler is useful for creating listings of projects, as this is
 // very light on reads, and can be executed more often. It populates the
 // template data with just User and Repo fields, along with 2 functions: users
 // and repos.

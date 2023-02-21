@@ -93,7 +93,7 @@ func (g *Gwi) tree(repo *git.Repository) func(ref plumbing.Hash) []File {
 		tree.Files().ForEach(func(f *object.File) error {
 			logger.Debug("getting", f.Name)
 			size, _ := tree.Size(f.Name)
-			files = append(files, File{ File: f, Size: size})
+			files = append(files, File{File: f, Size: size})
 			return nil
 		})
 		return files
