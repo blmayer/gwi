@@ -15,8 +15,8 @@ This project is in early stages of development, and some features may be
 missing. If you want to request a feature or report a bug, follow the
 instructions at [the author's git](https://blmayer.dev/x).
 
-For more information on how to use gwi, please consult our 
-[go docs](https://pkg.go.dev/blmayer.dev/x/gwi).
+[![Go Report Card](https://goreportcard.com/badge/blmayer.dev/x/gwi)](https://goreportcard.com/report/blmayer.dev/x/gwi)
+[![Go Reference](https://pkg.go.dev/badge/blmayer.dev/x/gwi.svg)](https://pkg.go.dev/blmayer.dev/x/gwi)
 
 Thank you!
 

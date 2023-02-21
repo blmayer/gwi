@@ -1,6 +1,7 @@
 package gwi
 
 import (
+	"bytes"
 	"compress/gzip"
 	"io"
 	"net/http"
@@ -35,6 +36,9 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Error("invalid URL", err.Error())
 		http.Error(w, "invalid URL", http.StatusBadRequest)
 		return
+	}
+	transport.UnsupportedCapabilities = []capability.Capability{
+		capability.ThinPack,
 	}
 
 	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
@@ -88,8 +92,8 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		sess, err = gitServer.NewUploadPackSession(end, nil)
 	}
 	if err != nil {
-		logger.Error("session", err.Error())
-		http.Error(w, "session", http.StatusInternalServerError)
+		logger.Error("session error:", err.Error())
+		http.Error(w, "session error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -103,9 +107,9 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		[]byte("# service=" + service),
 		pktline.Flush,
 	}
-	refs.Capabilities.Add("no-thin")
-	refs.Capabilities.Add(capability.NoProgress)
+	refs.Capabilities.Add(capability.Shallow)
 	refs.Capabilities.Add(capability.NoDone)
+	refs.Capabilities.Add(capability.MultiACK)
 
 	w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
 	w.Header().Set("Accept-Encoding", "identity")
@@ -136,7 +140,6 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid repo", http.StatusUnauthorized)
 		return
 	}
-	logger.Info("successful authentication")
 
 	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
 	end, err := transport.NewEndpoint(user + "/" + repo)
@@ -218,7 +221,7 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upload decode: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	logger.Debug("request:", upr.Wants, *upr.Capabilities)
+	logger.Debug("request:", upr.Wants, upr.Haves, *upr.Capabilities)
 
 	res, err := sess.UploadPack(r.Context(), upr)
 	if err != nil {
@@ -226,12 +229,17 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upload pack: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	logger.Debug("response:", res.ACKs, res.ServerResponse.ACKs)
 
-	w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
-	if err := res.Encode(w); err != nil {
+	buff := bytes.Buffer{}
+	if err := res.Encode(&buff); err != nil {
 		logger.Error("encode response", err.Error())
 		http.Error(w, "encode response", http.StatusInternalServerError)
 	}
+
+	w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
+	w.Write(buff.Bytes())
+
 	logger.Debug("sent", res.ServerResponse, res.ACKs)
 }
 
