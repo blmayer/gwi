@@ -109,7 +109,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	refs.Capabilities.Add(capability.Shallow)
 	refs.Capabilities.Add(capability.NoDone)
-	refs.Capabilities.Add(capability.MultiACK)
+	refs.Capabilities.Add("no-thin")
 
 	w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
 	w.Header().Set("Accept-Encoding", "identity")
