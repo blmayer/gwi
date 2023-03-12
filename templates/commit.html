@@ -3,8 +3,6 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Repo}}</h1>
-
 {{with commit .Ref}}
 <p><b>Commited at:</b> {{.Committer.When.String}}</p>
 <p><b>Author:</b> {{.Committer.Name}} ({{.Committer.Email}})</p>

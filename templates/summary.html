@@ -3,7 +3,6 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Repo}}</h1>
 <p>{{desc head.Hash}}</p>
 
 <details>
@@ -26,7 +25,6 @@
 <hr>
 
 {{with file .Ref "README.md"}}
-	<h2>Readme</h2>
 	{{markdown .}}
 {{end}}
 

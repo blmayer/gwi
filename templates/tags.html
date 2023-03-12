@@ -3,8 +3,6 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Repo}}</h1>
-
 <ul>
     {{range tags}}
     <li><a href="summary/{{.Hash.String}}">{{.Name.Short}}</a></li>

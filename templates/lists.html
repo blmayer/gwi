@@ -3,11 +3,10 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h2>Lists</h2>
 <ol reversed>
 {{range threads}}
 <li>
-	<a href=/mails/{{.Title}}>{{.Title}}</a>
+	<a href=mails/{{.Title}}>{{.Title}}</a>
 	<aside style="float:right">
 		<small>
 			Updated {{.LastMod.Format "2006-01-02 15:04:05"}}

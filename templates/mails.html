@@ -3,25 +3,7 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>{{.Repo}}</h1>
-
-<details>
-	<summary>
-		Browsing {{.RefName}}
-	</summary>
-	<ul>
-		{{range branches .Ref}}
-		<li><a href={{.Hash.String}}>{{.Name.Short}}</a></li>
-		{{end}}
-	</ul>
-</details>
-
-<p>{{commits .Ref}} commits</p>
-
-<p><b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b></p>
-<hr>
-
-<h2>{{.Args}}</h2>
+<h3>{{.Args}}</h3>
 {{range (mails .Args)}}
 <address>
 	From: {{.From}}
