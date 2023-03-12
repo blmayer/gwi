@@ -63,11 +63,11 @@ func mdown(in string) template.HTML {
 	return template.HTML(safeHTML)
 }
 
-func (g *Gwi) thread(user, repo string) func(section string) []interfaces.Mailbox {
-	return func(section string) []interfaces.Mailbox {
-		logger.Debug("getting threads for", section)
+func (g *Gwi) threads(user, repo string) func() []interfaces.Mailbox {
+	return func() []interfaces.Mailbox {
+		logger.Debug("getting threads for", user, repo)
 
-		mailPath := path.Join(user, repo, "mail", section)
+		mailPath := path.Join(user, repo, "mail")
 		threads, err := g.mailer.Mailboxes(mailPath)
 		if err != nil {
 			logger.Debug("threads error:", err.Error())
