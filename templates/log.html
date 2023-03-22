@@ -13,7 +13,7 @@
     <tr>
         <td>{{.Author.When.String}}</td>
         <td>{{.Author.Name}}</td>
-	<td><a href="/{{$.User}}/{{$.Repo}}/commit/{{.Hash.String}}">{{.Message}}</a></td>
+	<td><a href="/{{$.User}}/{{$.Repo}}/commit?ref={{.Hash.String}}">{{.Message}}</a></td>
     </tr>
     {{end}}
 </table>

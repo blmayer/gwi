@@ -7,7 +7,7 @@ replace blmayer.dev/x/dovel => ../dovel
 require (
 	blmayer.dev/x/dovel v0.6.0
 	github.com/go-git/go-billy/v5 v5.4.1
-	github.com/go-git/go-git/v5 v5.6.0
+	github.com/go-git/go-git/v5 v5.6.1
 	github.com/gomarkdown/markdown v0.0.0-20230311204719-630fdb2a10ae
 	github.com/gorilla/mux v1.8.0
 	github.com/microcosm-cc/bluemonday v1.0.23
