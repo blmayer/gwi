@@ -3,17 +3,17 @@
 {{template "header.html"}}
 {{template "nav.html" .}}
 
+<h1>Tree</h1>
+
 <table>
-    <tr>
-        <th>Mode</th>
-        <th>Size</th>
-        <th>Name</th>
-    </tr>
-    {{range tree .Ref}}
-    <tr>
-        <td>{{.Mode}}</td>
-        <td>{{.Size}}</td>
-	<td><a href="/{{$.User}}/{{$.Repo}}/files/{{.Name}}?ref={{$.Ref}}">{{.Name}}</a></td>
-    </tr>
-    {{end}}
+	<tr>
+		<th>Mode</th>
+		<th>Name</th>
+	</tr>
+{{with $data := .}}
+{{with $commit := $data.Git.LookupCommit $data.Git.Head.Target}}
+{{with $data.Params.Set "tree" $commit.TreeId}}{{end}}
+{{template "dir.html" $data}}
+{{end}}
 </table>
+{{end}}

@@ -43,15 +43,6 @@
 //   - head
 //   - thread
 //   - mails
-//   - desc
-//   - branches
-//   - tags
-//   - log
-//   - commits
-//   - commit
-//   - tree
-//   - files
-//   - file
 //   - markdown
 //
 // Which can be called on templates using the standard template syntax.
@@ -118,12 +109,25 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
+	git "github.com/libgit2/git2go/v34"
 
 	"github.com/microcosm-cc/bluemonday"
 )
+
+type Params map[string]any
+
+func NewParams() Params {
+	return map[string]any{}
+}
+
+func (p Params) Get(k string) any {
+	return p[k]
+}
+
+func (p Params) Set(k string, v any) Params {
+	p[k] = v
+	return p
+}
 
 // User interface represents what a user should provide at a minimum. This
 // interface is available on templates and is also used internaly.
@@ -133,19 +137,14 @@ type User interface {
 	Pass() string
 }
 
-type File struct {
-	*object.File
-	Size int64
-}
-
 // Info is the structure that is passed as data to templates being executed.
 // The values are filled with the selected repo and user given on the URL.
 type Info struct {
-	User    string
-	Repo    string
-	Ref     plumbing.Hash
-	RefName string
-	Args    string
+	User   string
+	Repo   string
+	Args   string
+	Params Params
+	Git    *git.Repository
 }
 
 // Config is used to configure the gwi application, things like Root and
@@ -187,20 +186,12 @@ var FuncMapTempl = map[string]any{
 	// "sysinfo":  sysInfo,
 	"usage":    diskUsage,
 	"users":    func() []string { return nil },
-	"repos":    func(user string) []string { return nil },
-	"head":     func() *plumbing.Reference { return nil },
+	"repos":    func() []Info { return nil },
 	"threads":  func(section string) []any { return nil },
 	"mails":    func(thread string) []any { return nil },
-	"desc":     func(ref plumbing.Hash) string { return "" },
-	"branches": func(ref plumbing.Hash) []*plumbing.Reference { return nil },
-	"tags":     func() []*plumbing.Reference { return nil },
-	"log":      func(ref plumbing.Hash) []*object.Commit { return nil },
-	"commits":  func(ref plumbing.Hash) int { return -1 },
-	"commit":   func(ref plumbing.Hash) *object.Commit { return nil },
-	"tree":     func(ref plumbing.Hash) []File { return nil },
-	"files":    func(ref plumbing.Hash) int { return -1 },
-	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": mdown,
+	"iter":     iter,
+	"seq":      seq,
 }
 
 func NewFromConfig(config Config, vault Vault) (Gwi, error) {
@@ -275,24 +266,19 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running list handler with", vars)
 
-	info := Info{
-		User: vars["user"],
-		Repo: vars["repo"],
-	}
-
 	funcMap := map[string]any{
 		"users": g.users(),
-		"repos": g.repos(),
 	}
-	pages := g.pages.Funcs(funcMap)
 
 	w.Header().Set("Content-Type", "text/html")
 	page := "users.html"
-	if info.User != "" {
+	if vars["user"] != "" {
+		funcMap["repos"] = g.repos(vars["user"])
 		page = "repos.html"
 	}
 
-	if err := pages.ExecuteTemplate(w, page, info); err != nil {
+	pages := g.pages.Funcs(funcMap)
+	if err := pages.ExecuteTemplate(w, page, nil); err != nil {
 		logger.Error("execute error:", err.Error())
 	}
 }
@@ -305,68 +291,30 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running main handler with", vars)
+	ps := NewParams()
+	for k, v := range r.URL.Query() {
+		ps.Set(k, v[0])
+	}
 
 	info := Info{
-		User: vars["user"],
-		Repo: vars["repo"],
-		Ref:  plumbing.NewHash(r.URL.Query().Get("ref")),
-		Args: vars["args"],
+		User:   vars["user"],
+		Repo:   vars["repo"],
+		Args:   vars["args"],
+		Params: ps,
 	}
-	repoDir := path.Join(g.config.Root, info.User, info.Repo)
 
-	repo, err := git.PlainOpen(repoDir)
+	var err error
+	repoDir := path.Join(g.config.Root, vars["user"], vars["repo"])
+	info.Git, err = git.OpenRepository(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	refIter, err := repo.References()
-	if err != nil {
-		logger.Error("git references error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	refs := map[plumbing.Hash]*plumbing.Reference{}
-	refIter.ForEach(func(r *plumbing.Reference) error {
-		refs[r.Hash()] = r
-		return nil
-	})
-
-	head, err := repo.Head()
-	if err != nil {
-		logger.Error("git head error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// TODO: Improve ref name, as it changes between invocations
-	if r.URL.Query().Get("ref") == "" {
-		info.Ref = head.Hash()
-		info.RefName = head.Name().Short()
-	} else {
-		if refName, ok := refs[info.Ref]; ok {
-			info.RefName = refName.Name().Short()
-		} else {
-			info.RefName = info.Ref.String()
-		}
-	}
-
 	funcMap := map[string]any{
-		"users":    g.users(),
-		"repos":    g.repos(),
-		"head":     g.head(head),
-		"desc":     g.desc(repo),
-		"threads":  g.threads(info.User, info.Repo),
-		"mails":    g.mails(info.User, info.Repo),
-		"branches": g.branches(repo),
-		"tags":     g.tags(repo),
-		"log":      g.log(repo),
-		"commits":  g.commits(repo),
-		"commit":   g.commit(repo),
-		"tree":     g.tree(repo),
-		"files":    g.files(repo),
-		"file":     g.file(repo),
+		"threads": g.threads(repoDir),
+		"mails":   g.mails(repoDir),
 	}
 	pages := g.pages.Funcs(funcMap)
 
@@ -385,37 +333,35 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running zip handler with", vars)
 
-	info := Info{
-		User: vars["user"],
-		Repo: vars["repo"],
-		Ref:  plumbing.NewHash(r.URL.Query().Get("ref")),
-	}
-	repoDir := path.Join(g.config.Root, info.User, info.Repo)
+	user := vars["user"]
+	repo := vars["repo"]
+	repoDir := path.Join(g.config.Root, user, repo)
 
-	repo, err := git.PlainOpen(repoDir)
+	repoGit, err := git.OpenRepository(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if r.URL.Query().Get("ref") == "" {
-		head, err := repo.Head()
+	ref, err := git.NewOid(r.URL.Query().Get("ref"))
+	if err != nil {
+		head, err := repoGit.Head()
 		if err != nil {
 			logger.Error("git head error:", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		info.Ref = head.Hash()
+		ref = head.Target()
 	}
-	commit, err := repo.CommitObject(info.Ref)
+	commit, err := repoGit.LookupCommit(ref)
 	if err != nil {
 		logger.Error("commit error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	logger.Debug("getting tree for commit", commit.Hash.String())
+	logger.Debug("getting tree for commit", commit.Id().String())
 	tree, err := commit.Tree()
 	if err != nil {
 		logger.Error("trees error:", err.Error())
@@ -425,22 +371,22 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/zip")
 	arc := zip.NewWriter(w)
-	tree.Files().ForEach(func(f *object.File) error {
-		logger.Debug("getting", f.Name)
-		z, err := arc.Create(f.Name)
+	tree.Walk(func(name string, entry *git.TreeEntry) error {
+		logger.Debug("getting", name)
+		z, err := arc.Create(name)
 		if err != nil {
 			logger.Error("create file error:", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return err
 		}
 
-		content, err := f.Contents()
+		content, err := repoGit.LookupBlob(entry.Id)
 		if err != nil {
 			logger.Error("content error:", err.Error())
 			return err
 		}
 
-		_, err = z.Write([]byte(content))
+		_, err = z.Write(content.Contents())
 		if err != nil {
 			logger.Error("write file error:", err.Error())
 			return err

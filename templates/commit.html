@@ -3,14 +3,14 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-{{with commit .Ref}}
-<p><b>Commited at:</b> {{.Committer.When.String}}</p>
-<p><b>Author:</b> {{.Committer.Name}} ({{.Committer.Email}})</p>
-<p><b>Message:</b></p>
-<p>{{.Message}}</p>
-
-<h3>Changes</h3>
+<h1>Commit</h1>
+{{with (.Query.Get "ref") | .Git.CommitObject }}
+Parent: <a href="commit?ref={{(.Parent 0)}}">{{(.Parent 0)}}</a><br>
+Commited {{.Author.When.String}}<br>
+By {{.Author.Name}}<br>
+Message: {{.Message}}
+Changes:
 <pre>
-{{.Patch (.Parent 0)}}
+{{(.Parent 0).Patch .}}
 </pre>
 {{end}}

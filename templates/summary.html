@@ -3,38 +3,22 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<p>{{desc head.Hash}}</p>
-
-<details>
-	<summary>
-		Browsing {{.RefName}}
-	</summary>
-	<ul>
-		{{range branches .Ref}}
-		<li><a href={{.Hash.String}}>{{.Name.Short}}</a></li>
-		{{end}}
-	</ul>
-</details>
-
-<p>{{commits .Ref}} commits | {{files .Ref}} files</p>
-
+<center><i>{{template "desc.html" .Git}}</i></center>
 <p>
 	<b>git clone http://localhost:8080/{{.User}}/{{.Repo}}</b>
-	<a style="float:right" href="/{{.User}}/{{.Repo}}/zip?ref={{.Ref}}" download="{{.Repo}}">zip</a>
+	<a style="float:right" href="/{{.User}}/{{.Repo}}/zip?ref={{.Query.ref}}" download="{{.Repo}}">zip</a>
 </p>
 <hr>
 
-{{with file .Ref "README.md"}}
-	{{markdown .}}
-{{end}}
+{{with $tree := (.Git.Head.Target | .Git.LookupCommit).Tree}}
+<h1>Readme</h1>
+{{($.Git.LookupBlob ($tree.EntryByName "README.md").Id).Contents | markdown}}
 
-{{with file .Ref "TODO.md"}}
-	<h2>TODO</h2>
-	{{markdown .}}
-{{end}}
+<h1>TODO</h1>
+{{($.Git.LookupBlob ($tree.EntryByName "TODO.md").Id).Contents | markdown}}
 
-{{with file .Ref "LICENSE"}}
-	<h2>License</h2>
-	<pre>{{.}}</pre>
+<h1>License</h1>
+<pre>{{($.Git.LookupBlob ($tree.EntryByName "LICENSE").Id).Contents | printf "%s"}}</pre>
+
 {{end}}
 

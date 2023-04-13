@@ -1,10 +1,9 @@
 <center>
-	<h1>{{.Repo}}</h1>
+	<h1><a href=/{{.User}}/{{.Repo}}>{{.Repo}}</a></h1>
 	<p>
-	<a href="/{{.User}}/{{.Repo}}/summary">summary</a> | 
-	<a href="/{{.User}}/{{.Repo}}/tree?ref={{.Ref.String}}">tree</a> | 
-	<a href="/{{.User}}/{{.Repo}}/log?ref={{.Ref.String}}">commits</a> |
-	<a href="/{{.User}}/{{.Repo}}/tags">tags</a> |
+	<a href="/{{.User}}/{{.Repo}}/tree?ref={{.Params.ref}}">tree</a> | 
+	<a href="/{{.User}}/{{.Repo}}/log?ref={{.Params.ref}}">log</a> |
+	<a href="/{{.User}}/{{.Repo}}/refs">refs</a> |
 	<a href="/{{.User}}/{{.Repo}}/lists">lists</a>
 	</p>
 </center>
