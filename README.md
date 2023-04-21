@@ -18,6 +18,9 @@ instructions at [the author's git](https://blmayer.dev/x).
 [![Go Report Card](https://goreportcard.com/badge/blmayer.dev/x/gwi)](https://goreportcard.com/report/blmayer.dev/x/gwi)
 [![Go Reference](https://pkg.go.dev/badge/blmayer.dev/x/gwi.svg)](https://pkg.go.dev/blmayer.dev/x/gwi)
 
+If you like to star it on GitHub, we have a mirror repo there:
+[GitHub](https://github.com/blmayer/gwi)
+
 Thank you!
 
 
