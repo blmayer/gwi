@@ -10,7 +10,9 @@ import (
 	"blmayer.dev/x/dovel/interfaces"
 	"blmayer.dev/x/gwi/internal/logger"
 
-	git "github.com/libgit2/git2go/v34"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/gomarkdown/markdown"
 )
 
@@ -18,10 +20,6 @@ type Usage struct {
 	Total int
 	Free  int
 	Used  int
-}
-
-type iterator interface {
-	Next() (any, error)
 }
 
 // diskUsage returns total and used Mb
@@ -59,33 +57,17 @@ func diskUsage() Usage {
 // 	return sysinfo
 // }
 
-func iter(next func() (any, error)) []any {
-	var out []any
-	for res, err := next(); err == nil; {
-		out = append(out, res)
-	}
-	return out
-}
-
-func seq(n uint64) []uint64 {
-	out := make([]uint64, n)
-	for i := 0; i < int(n); i++ {
-		out[i] = uint64(i)
-	}
-	return out
-}
-
-func mdown(in []byte) template.HTML {
-	html := markdown.ToHTML(in, nil, nil)
+func mdown(in string) template.HTML {
+	html := markdown.ToHTML([]byte(in), nil, nil)
 	safeHTML := p.Sanitize(string(html))
 	return template.HTML(safeHTML)
 }
 
-func (g *Gwi) threads(repo string) func() []interfaces.Mailbox {
+func (g *Gwi) threads(user, repo string) func() []interfaces.Mailbox {
 	return func() []interfaces.Mailbox {
-		logger.Debug("getting threads for", repo)
+		logger.Debug("getting threads for", user, repo)
 
-		mailPath := path.Join(repo, "mail")
+		mailPath := path.Join(user, repo, "mail")
 		threads, err := g.mailer.Mailboxes(mailPath)
 		if err != nil {
 			logger.Debug("threads error:", err.Error())
@@ -96,11 +78,11 @@ func (g *Gwi) threads(repo string) func() []interfaces.Mailbox {
 	}
 }
 
-func (g *Gwi) mails(repo string) func(thread string) []interfaces.Email {
+func (g *Gwi) mails(user, repo string) func(thread string) []interfaces.Email {
 	return func(thread string) []interfaces.Email {
 		logger.Debug("getting mail for", thread)
 
-		dir := path.Join(repo, "mail", thread)
+		dir := path.Join(user, repo, "mail", thread)
 		mail, err := g.mailer.Mails(dir)
 		if err != nil {
 			logger.Error("read mail", err.Error())
@@ -139,32 +121,99 @@ func (g *Gwi) users() func() []string {
 	}
 }
 
-func (g *Gwi) repos(user string) func() []Info {
-	return func() []Info {
+func (g *Gwi) repos() func(user string) []string {
+	return func(user string) []string {
 		logger.Debug("getting repos for", user)
-		root := path.Join(g.config.Root, user)
-		dir, err := os.ReadDir(root)
+		dir, err := os.ReadDir(path.Join(g.config.Root, user))
 		if err != nil {
 			logger.Debug("readDir error:", err.Error())
 			return nil
 		}
 
-		var rs []Info
+		var rs []string
 		for _, d := range dir {
 			if !d.IsDir() {
 				continue
 			}
 
-			info := Info{User: user, Repo: d.Name()}
-			info.Git, err = git.OpenRepository(path.Join(root, d.Name()))
-			if err != nil {
-				logger.Debug("open repo:", err.Error())
-				continue
-			}
-			rs = append(rs, info)
+			rs = append(rs, d.Name())
 		}
 
 		return rs
 	}
 }
 
+func (g *Gwi) head(ref *plumbing.Reference) func() *plumbing.Reference {
+	return func() *plumbing.Reference {
+		return ref
+	}
+}
+
+func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
+	return func(ref plumbing.Hash) string {
+		logger.Debug("getting desc for ref", ref.String())
+		commit, err := repo.CommitObject(ref)
+		if err != nil {
+			logger.Error("commitObject error:", err.Error())
+			return ""
+		}
+
+		tree, err := commit.Tree()
+		if err != nil {
+			logger.Error("tree error:", err.Error())
+			return ""
+		}
+		descFile, err := tree.File("DESC")
+		if err != nil && err != object.ErrFileNotFound {
+			logger.Error("descFile error:", err.Error())
+			return ""
+		}
+		if err == object.ErrFileNotFound {
+			return ""
+		}
+
+		content, err := descFile.Contents()
+		if err != nil {
+			logger.Error("contents error:", err.Error())
+			return ""
+		}
+
+		return content
+	}
+}
+
+func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing.Reference {
+	return func(ref plumbing.Hash) []*plumbing.Reference {
+		logger.Debug("getting branches for ref", ref.String())
+		brs, err := repo.Branches()
+		if err != nil {
+			logger.Error("branches error:", err.Error())
+			return nil
+		}
+
+		var branches []*plumbing.Reference
+		brs.ForEach(func(b *plumbing.Reference) error {
+			branches = append(branches, b)
+			return nil
+		})
+		return branches
+	}
+}
+
+func (g *Gwi) tags(repo *git.Repository) func() []*plumbing.Reference {
+	return func() []*plumbing.Reference {
+		logger.Debug("getting tags")
+		tgs, err := repo.Tags()
+		if err != nil {
+			logger.Error("tags error:", err.Error())
+			return nil
+		}
+
+		var tags []*plumbing.Reference
+		tgs.ForEach(func(t *plumbing.Reference) error {
+			tags = append(tags, t)
+			return nil
+		})
+		return tags
+	}
+}

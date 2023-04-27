@@ -1,7 +1,0 @@
-{{with $entry := (.Head.Target | .LookupCommit).Tree.EntryByName "DESC"}}
-{{if gt ($.LookupBlob $entry.Id).Size 0}}
-{{($.LookupBlob $entry.Id).Contents | printf "%s"}}
-{{else}}
-<i>No description</i>
-{{end}}
-{{end}}

@@ -1,0 +1,12 @@
+{{template "style.html"}}
+{{template "head.html"}}
+{{template "header.html" .Creator}}
+{{template "nav.html" .}}
+
+<h1>{{.Name}}</h1>
+
+<ul>
+    {{range .Branches}}
+    <li><a href="branches/{{.Name}}">{{.Name}}</a></li>
+    {{end}}
+</ul>

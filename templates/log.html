@@ -3,23 +3,17 @@
 {{template "header.html" .User}}
 {{template "nav.html" .}}
 
-<h1>Log</h1>
-Showing only 100 commits, latest first.
-
-{{with $commit := .Git.CommitObject .Git.Head.Hash}}
-{{range seq 100}}
-{{if $commit}}
-<p>
-	{{$commit.Message}}<br>
-	Commited {{$commit.Author.When.String}}<br>
-	By {{$commit.Author.Name}}<br>
-	<a href="commit?ref={{$commit.Hash}}">{{$commit.Hash}}</a>
-</p>
-{{if eq $commit.NumParents 0}}
-{{break}}
-{{else}}
-{{$commit = $commit.Parent 0}}
-{{end}}
-{{end}}
-{{end}}
-{{end}}
+<table>
+    <tr>
+        <th>Time</th>
+        <th>Author</th>
+        <th>Message</th>
+    </tr>
+    {{range log .Ref}}
+    <tr>
+        <td>{{.Author.When.String}}</td>
+        <td>{{.Author.Name}}</td>
+	<td><a href="/{{$.User}}/{{$.Repo}}/commit?ref={{.Hash.String}}">{{.Message}}</a></td>
+    </tr>
+    {{end}}
+</table>

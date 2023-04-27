@@ -4,9 +4,4 @@
 {{template "nav.html" .}}
 
 <h1>{{.Args}}</h1>
-
-{{with $entry := (.Git.Head.Target | .Git.LookupCommit).Tree.EntryByPath .Args}}
-<pre>
-{{($.Git.LookupBlob $entry.Id).Contents | printf "%s"}}
-</pre>
-{{end}}
+<pre>{{file .Ref .Args}}</pre>
