@@ -2,7 +2,6 @@ package gwi
 
 import (
 	"html/template"
-	"os"
 	"path"
 	"sort"
 	"syscall"
@@ -63,6 +62,12 @@ func mdown(in string) template.HTML {
 	return template.HTML(safeHTML)
 }
 
+func wrap(res any, err error) any {
+	println(res)
+	println(err)
+	return res
+}
+
 func (g *Gwi) threads(user, repo string) func() []interfaces.Mailbox {
 	return func() []interfaces.Mailbox {
 		logger.Debug("getting threads for", user, repo)
@@ -96,56 +101,6 @@ func (g *Gwi) mails(user, repo string) func(thread string) []interfaces.Email {
 			},
 		)
 		return mail
-	}
-}
-
-func (g *Gwi) users() func() []string {
-	return func() []string {
-		logger.Debug("getting users")
-		dir, err := os.ReadDir(g.config.Root)
-		if err != nil {
-			logger.Debug("readDir error:", err.Error())
-			return nil
-		}
-
-		var users []string
-		for _, d := range dir {
-			if !d.IsDir() {
-				continue
-			}
-
-			users = append(users, d.Name())
-		}
-
-		return users
-	}
-}
-
-func (g *Gwi) repos() func(user string) []string {
-	return func(user string) []string {
-		logger.Debug("getting repos for", user)
-		dir, err := os.ReadDir(path.Join(g.config.Root, user))
-		if err != nil {
-			logger.Debug("readDir error:", err.Error())
-			return nil
-		}
-
-		var rs []string
-		for _, d := range dir {
-			if !d.IsDir() {
-				continue
-			}
-
-			rs = append(rs, d.Name())
-		}
-
-		return rs
-	}
-}
-
-func (g *Gwi) head(ref *plumbing.Reference) func() *plumbing.Reference {
-	return func() *plumbing.Reference {
-		return ref
 	}
 }
 

@@ -113,7 +113,8 @@ import (
 	"os"
 	"path"
 
-	"blmayer.dev/x/dovel/interfaces/file"
+	"blmayer.dev/x/dovel/config"
+	dovel "blmayer.dev/x/dovel/interfaces/gwi"
 	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/gorilla/mux"
@@ -146,6 +147,7 @@ type Info struct {
 	Ref     plumbing.Hash
 	RefName string
 	Args    string
+	Git     *git.Repository
 }
 
 // Config is used to configure the gwi application, things like Root and
@@ -176,7 +178,7 @@ type Gwi struct {
 	pages     *template.Template
 	handler   *mux.Router
 	vault     Vault
-	mailer    file.FileHandler
+	mailer    dovel.GWIHandler
 	functions map[string]func(params ...any) any
 }
 
@@ -201,11 +203,12 @@ var FuncMapTempl = map[string]any{
 	"files":    func(ref plumbing.Hash) int { return -1 },
 	"file":     func(ref plumbing.Hash, name string) string { return "" },
 	"markdown": mdown,
+	"wrap":     wrap,
 }
 
-func NewFromConfig(config Config, vault Vault) (Gwi, error) {
+func NewFromConfig(cfg Config, vault Vault) (Gwi, error) {
 	gwi := Gwi{
-		config: config,
+		config: cfg,
 		vault:  vault,
 	}
 
@@ -218,16 +221,16 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 	for name, f := range FuncMapTempl {
 		funcMap[name] = f
 	}
-	for name, f := range config.Functions {
+	for name, f := range cfg.Functions {
 		funcMap[name] = f
 	}
-	gwi.pages = template.New("all").Funcs(funcMap)
+	gwi.pages = template.New("all").Funcs(funcMap).Option()
 
 	// mail
 	var err error
-	gwi.mailer, err = file.NewFileHandler(
-		file.FileConfig{Root: config.Root},
-		funcMap,
+	gwi.mailer, err = dovel.NewGWIHandler(
+		config.InboxConfig{Root: cfg.Root},
+		nil,
 	)
 	if err != nil {
 		logger.Error("new mailer error", err.Error())
@@ -255,7 +258,7 @@ func NewFromConfig(config Config, vault Vault) (Gwi, error) {
 
 	// read templates
 	logger.Debug("parsing templates...")
-	gwi.pages, err = gwi.pages.ParseGlob(path.Join(config.PagesRoot, "*.html"))
+	gwi.pages, err = gwi.pages.ParseGlob(path.Join(cfg.PagesRoot, "*.html"))
 
 	return gwi, err
 }
@@ -275,24 +278,53 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	logger.Debug("running list handler with", vars)
 
-	info := Info{
-		User: vars["user"],
-		Repo: vars["repo"],
-	}
-
-	funcMap := map[string]any{
-		"users": g.users(),
-		"repos": g.repos(),
-	}
-	pages := g.pages.Funcs(funcMap)
-
 	w.Header().Set("Content-Type", "text/html")
+
+	info := struct {
+		Users []string
+		Repos []Info
+	}{}
+
 	page := "users.html"
-	if info.User != "" {
+	if user := vars["user"]; user == "" {
+		logger.Debug("getting users")
+		dir, err := os.ReadDir(g.config.Root)
+		if err != nil {
+			logger.Debug("readDir error:", err.Error())
+		}
+
+		for _, d := range dir {
+			if !d.IsDir() {
+				continue
+			}
+
+			info.Users = append(info.Users, d.Name())
+		}
+	} else {
+		logger.Debug("getting repos for", user)
 		page = "repos.html"
+
+		root := path.Join(g.config.Root, user)
+		dir, err := os.ReadDir(root)
+		if err != nil {
+			logger.Debug("readDir error:", err.Error())
+		}
+
+		for _, d := range dir {
+			if !d.IsDir() {
+				continue
+			}
+
+			repo, err := git.PlainOpen(path.Join(root, d.Name()))
+			if err != nil {
+				logger.Debug("open repo:", err.Error())
+				continue
+			}
+			info.Repos = append(info.Repos, Info{Repo: d.Name(), Git: repo})
+		}
 	}
 
-	if err := pages.ExecuteTemplate(w, page, info); err != nil {
+	if err := g.pages.ExecuteTemplate(w, page, info); err != nil {
 		logger.Error("execute error:", err.Error())
 	}
 }
@@ -314,59 +346,17 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	repoDir := path.Join(g.config.Root, info.User, info.Repo)
 
-	repo, err := git.PlainOpen(repoDir)
+	var err error
+	info.Git, err = git.PlainOpen(repoDir)
 	if err != nil {
 		logger.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	refIter, err := repo.References()
-	if err != nil {
-		logger.Error("git references error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	refs := map[plumbing.Hash]*plumbing.Reference{}
-	refIter.ForEach(func(r *plumbing.Reference) error {
-		refs[r.Hash()] = r
-		return nil
-	})
-
-	head, err := repo.Head()
-	if err != nil {
-		logger.Error("git head error:", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// TODO: Improve ref name, as it changes between invocations
-	if r.URL.Query().Get("ref") == "" {
-		info.Ref = head.Hash()
-		info.RefName = head.Name().Short()
-	} else {
-		if refName, ok := refs[info.Ref]; ok {
-			info.RefName = refName.Name().Short()
-		} else {
-			info.RefName = info.Ref.String()
-		}
-	}
-
 	funcMap := map[string]any{
-		"users":    g.users(),
-		"repos":    g.repos(),
-		"head":     g.head(head),
-		"desc":     g.desc(repo),
-		"threads":  g.threads(info.User, info.Repo),
-		"mails":    g.mails(info.User, info.Repo),
-		"branches": g.branches(repo),
-		"tags":     g.tags(repo),
-		"log":      g.log(repo),
-		"commits":  g.commits(repo),
-		"commit":   g.commit(repo),
-		"tree":     g.tree(repo),
-		"files":    g.files(repo),
-		"file":     g.file(repo),
+		"threads": g.threads(info.User, info.Repo),
+		"mails":   g.mails(info.User, info.Repo),
 	}
 	pages := g.pages.Funcs(funcMap)
 

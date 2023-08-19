@@ -3,8 +3,8 @@
 
 <h2>Repositories</h2>
 <ul>
-{{range repos .User}}
-<li><a href="{{$.User}}/{{.}}">{{.}}</a></li>
+{{range .Repos}}
+<li><a href="{{.Repo}}">{{template "desc.html" .Git}}</a></li>
 {{end}}
 </ul>
 

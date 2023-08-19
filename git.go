@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path"
 
 	"blmayer.dev/x/gwi/internal/logger"
@@ -16,6 +15,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/format/pktline"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/server"
@@ -139,8 +139,23 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
+	end, err := transport.NewEndpoint(user + "/" + repo)
+	if err != nil {
+		logger.Error("invalid URL", err.Error())
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	sess, err := gitServer.NewReceivePackSession(end, nil)
+	if err != nil {
+		logger.Error("session", err.Error())
+		http.Error(w, "session", http.StatusInternalServerError)
+		return
+	}
+
+	upr := packp.NewReferenceUpdateRequest()
+
 	var body io.Reader
-	var err error
 	switch r.Header.Get("Content-Encoding") {
 	case "gzip":
 		body, err = gzip.NewReader(r.Body)
@@ -156,20 +171,28 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
 
-	var stderr bytes.Buffer
-	cmd := exec.Command("git", "receive-pack", "--stateless-rpc", repo)
-	cmd.Dir = path.Join(g.config.Root, user)
-	cmd.Stdout = w
-	cmd.Stderr = &stderr
-	cmd.Stdin = body
-	if err = cmd.Run(); err != nil {
-		logger.Error("HTTP.serviceRPC: fail to serve RPC", err.Error()+stderr.String())
-		w.WriteHeader(http.StatusInternalServerError)
+	if err := upr.Decode(body); err != nil {
+		logger.Error("reference decode", err.Error())
+		http.Error(w, "reference decode: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	logger.Debug("request:", upr.Commands, *upr.Capabilities)
+
+	res, err := sess.ReceivePack(r.Context(), upr)
+	if err != nil {
+		logger.Error("receive pack", err.Error())
+		http.Error(w, "receive pack: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
+	if err := res.Encode(w); err != nil {
+		logger.Error("encode response", err.Error())
+		http.Error(w, "encode response", http.StatusInternalServerError)
+	}
+	logger.Debug("sent", *res, res.CommandStatuses)
 }
 
 func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
@@ -178,7 +201,20 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	user := mux.Vars(r)["user"]
 	repo := mux.Vars(r)["repo"]
 
-	var err error
+	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
+	end, err := transport.NewEndpoint(user + "/" + repo)
+	if err != nil {
+		logger.Error("invalid URL", err.Error())
+		http.Error(w, "invalid URL", http.StatusBadRequest)
+		return
+	}
+	sess, err := gitServer.NewUploadPackSession(end, nil)
+	if err != nil {
+		logger.Error("session", err.Error())
+		http.Error(w, "session", http.StatusInternalServerError)
+		return
+	}
+
 	var body io.Reader
 	switch r.Header.Get("Content-Encoding") {
 	case "gzip":
@@ -196,19 +232,32 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
-
-	var stderr bytes.Buffer
-	cmd := exec.Command("git", "upload-pack", "--stateless-rpc", repo)
-	cmd.Dir = path.Join(g.config.Root, user)
-	cmd.Stdout = w
-	cmd.Stderr = &stderr
-	cmd.Stdin = body
-	if err = cmd.Run(); err != nil {
-		logger.Error("HTTP.serviceRPC: fail to serve RPC", err.Error()+stderr.String())
-		w.WriteHeader(http.StatusInternalServerError)
+	upr := packp.NewUploadPackRequest()
+	if err := upr.Decode(body); err != nil {
+		logger.Error("upload decode", err.Error())
+		http.Error(w, "upload decode: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	logger.Debug("request:", upr.Wants, upr.Haves, *upr.Capabilities)
+
+	res, err := sess.UploadPack(r.Context(), upr)
+	if err != nil {
+		logger.Error("upload pack", err.Error())
+		http.Error(w, "upload pack: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	logger.Debug("response:", res.ACKs, res.ServerResponse.ACKs)
+
+	buff := bytes.Buffer{}
+	if err := res.Encode(&buff); err != nil {
+		logger.Error("encode response", err.Error())
+		http.Error(w, "encode response", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
+	w.Write(buff.Bytes())
+
+	logger.Debug("sent", res.ServerResponse, res.ACKs)
 }
 
 func (g *Gwi) headHandler(w http.ResponseWriter, r *http.Request) {
