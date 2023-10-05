@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"syscall"
 
-	"blmayer.dev/x/gwi/internal/logger"
+	"log/slog"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -38,7 +38,7 @@ func diskUsage() Usage {
 // 	sysinfo := syscall.Sysinfo_t{}
 // 	err := syscall.Sysinfo(&sysinfo)
 // 	if err != nil {
-// 		logger.Error("sysinfo:", err)
+// 		slog.Error("sysinfo:", err)
 // 	}
 //
 // 	sysinfo.Uptime /= 60 * 60
@@ -67,21 +67,21 @@ func wrap(res any, err error) any {
 
 func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 	return func(ref plumbing.Hash) string {
-		logger.Debug("getting desc for ref", ref.String())
+		slog.Debug("getting desc for ref", ref.String())
 		commit, err := repo.CommitObject(ref)
 		if err != nil {
-			logger.Error("commitObject error:", err.Error())
+			slog.Error("commitObject error:", err.Error())
 			return ""
 		}
 
 		tree, err := commit.Tree()
 		if err != nil {
-			logger.Error("tree error:", err.Error())
+			slog.Error("tree error:", err.Error())
 			return ""
 		}
 		descFile, err := tree.File("DESC")
 		if err != nil && err != object.ErrFileNotFound {
-			logger.Error("descFile error:", err.Error())
+			slog.Error("descFile error:", err.Error())
 			return ""
 		}
 		if err == object.ErrFileNotFound {
@@ -90,7 +90,7 @@ func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 
 		content, err := descFile.Contents()
 		if err != nil {
-			logger.Error("contents error:", err.Error())
+			slog.Error("contents error:", err.Error())
 			return ""
 		}
 
@@ -100,10 +100,10 @@ func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 
 func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing.Reference {
 	return func(ref plumbing.Hash) []*plumbing.Reference {
-		logger.Debug("getting branches for ref", ref.String())
+		slog.Debug("getting branches for ref", ref.String())
 		brs, err := repo.Branches()
 		if err != nil {
-			logger.Error("branches error:", err.Error())
+			slog.Error("branches error:", err.Error())
 			return nil
 		}
 
@@ -118,10 +118,10 @@ func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing
 
 func (g *Gwi) tags(repo *git.Repository) func() []*plumbing.Reference {
 	return func() []*plumbing.Reference {
-		logger.Debug("getting tags")
+		slog.Debug("getting tags")
 		tgs, err := repo.Tags()
 		if err != nil {
-			logger.Error("tags error:", err.Error())
+			slog.Error("tags error:", err.Error())
 			return nil
 		}
 

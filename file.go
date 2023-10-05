@@ -4,9 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
-
-	"blmayer.dev/x/gwi/internal/logger"
 )
 
 type vaultUser struct {
@@ -74,7 +73,7 @@ func (f FileVault) GetUser(login string) User {
 // used on git receive pack. User and pass parameters are received from HTTP
 // Basic authorization flow.
 func (f FileVault) Validate(login, pass string) bool {
-	logger.Debug("getting login", login)
+	slog.Debug("getting login", login)
 	if f.Users[login].Pass() == f.mix(pass) {
 		return true
 	}

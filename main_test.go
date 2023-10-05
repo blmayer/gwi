@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"testing"
 
-	"blmayer.dev/x/gwi/internal/logger"
+	"log/slog"
 )
 
 func Test_main(t *testing.T) {
-	logger.SetLevel(logger.DebugLevel)
+	slog.SetLevel(slog.DebugLevel)
 
 	cfg := Config{
 		Domain:      "localhost",

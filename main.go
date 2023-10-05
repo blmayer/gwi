@@ -113,7 +113,7 @@ import (
 	"os"
 	"path"
 
-	"blmayer.dev/x/gwi/internal/logger"
+	"log/slog"
 
 	"github.com/gorilla/mux"
 
@@ -156,7 +156,7 @@ type Config struct {
 	MailAddress string
 	PagesRoot   string
 	Root        string
-	LogLevel    logger.Level
+	LogLevel    slog.Level
 	Functions   map[string]func(p ...any) any
 }
 
@@ -210,7 +210,7 @@ func NewFromConfig(cfg Config, vault Vault) (Gwi, error) {
 	}
 
 	if os.Getenv("DEBUG") != "" {
-		logger.SetLevel(logger.DebugLevel)
+		slog.SetLevel(slog.DebugLevel)
 	}
 
 	// load functions
@@ -226,7 +226,7 @@ func NewFromConfig(cfg Config, vault Vault) (Gwi, error) {
 	// mail
 	var err error
 	if err != nil {
-		logger.Error("new mailer error", err.Error())
+		slog.Error("new mailer error", err.Error())
 	}
 
 	r := mux.NewRouter()
@@ -250,7 +250,7 @@ func NewFromConfig(cfg Config, vault Vault) (Gwi, error) {
 	gwi.handler = r
 
 	// read templates
-	logger.Debug("parsing templates...")
+	slog.Debug("parsing templates...")
 	gwi.pages, err = gwi.pages.ParseGlob(path.Join(cfg.PagesRoot, "*.html"))
 
 	return gwi, err
@@ -269,7 +269,7 @@ func (g *Gwi) Handle() http.Handler {
 // and repos.
 func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	logger.Debug("running list handler with", vars)
+	slog.Debug("running list handler with", vars)
 
 	w.Header().Set("Content-Type", "text/html")
 
@@ -280,10 +280,10 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 
 	page := "users.html"
 	if user := vars["user"]; user == "" {
-		logger.Debug("getting users")
+		slog.Debug("getting users")
 		dir, err := os.ReadDir(g.config.Root)
 		if err != nil {
-			logger.Debug("readDir error:", err.Error())
+			slog.Debug("readDir error:", err.Error())
 		}
 
 		for _, d := range dir {
@@ -294,13 +294,13 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 			info.Users = append(info.Users, d.Name())
 		}
 	} else {
-		logger.Debug("getting repos for", user)
+		slog.Debug("getting repos for", user)
 		page = "repos.html"
 
 		root := path.Join(g.config.Root, user)
 		dir, err := os.ReadDir(root)
 		if err != nil {
-			logger.Debug("readDir error:", err.Error())
+			slog.Debug("readDir error:", err.Error())
 		}
 
 		for _, d := range dir {
@@ -310,7 +310,7 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 
 			repo, err := git.PlainOpen(path.Join(root, d.Name()))
 			if err != nil {
-				logger.Debug("open repo:", err.Error())
+				slog.Debug("open repo:", err.Error())
 				continue
 			}
 			info.Repos = append(info.Repos, Info{Repo: d.Name(), Git: repo})
@@ -318,7 +318,7 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := g.pages.ExecuteTemplate(w, page, info); err != nil {
-		logger.Error("execute error:", err.Error())
+		slog.Error("execute error:", err.Error())
 	}
 }
 
@@ -329,7 +329,7 @@ func (g *Gwi) ListHandler(w http.ResponseWriter, r *http.Request) {
 // and tags about a given repo.
 func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	logger.Debug("running main handler with", vars)
+	slog.Debug("running main handler with", vars)
 
 	info := Info{
 		User: vars["user"],
@@ -342,7 +342,7 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	info.Git, err = git.PlainOpen(repoDir)
 	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
+		slog.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -358,13 +358,13 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	if err := pages.ExecuteTemplate(w, op+".html", info); err != nil {
-		logger.Error("execute error:", err.Error())
+		slog.Error("execute error:", err.Error())
 	}
 }
 
 func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	logger.Debug("running zip handler with", vars)
+	slog.Debug("running zip handler with", vars)
 
 	info := Info{
 		User: vars["user"],
@@ -375,7 +375,7 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
-		logger.Error("git PlainOpen error:", err.Error())
+		slog.Error("git PlainOpen error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -383,7 +383,7 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("ref") == "" {
 		head, err := repo.Head()
 		if err != nil {
-			logger.Error("git head error:", err.Error())
+			slog.Error("git head error:", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -391,15 +391,15 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	commit, err := repo.CommitObject(info.Ref)
 	if err != nil {
-		logger.Error("commit error:", err.Error())
+		slog.Error("commit error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	logger.Debug("getting tree for commit", commit.Hash.String())
+	slog.Debug("getting tree for commit", commit.Hash.String())
 	tree, err := commit.Tree()
 	if err != nil {
-		logger.Error("trees error:", err.Error())
+		slog.Error("trees error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -407,23 +407,23 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
 	arc := zip.NewWriter(w)
 	tree.Files().ForEach(func(f *object.File) error {
-		logger.Debug("getting", f.Name)
+		slog.Debug("getting", f.Name)
 		z, err := arc.Create(f.Name)
 		if err != nil {
-			logger.Error("create file error:", err.Error())
+			slog.Error("create file error:", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return err
 		}
 
 		content, err := f.Contents()
 		if err != nil {
-			logger.Error("content error:", err.Error())
+			slog.Error("content error:", err.Error())
 			return err
 		}
 
 		_, err = z.Write([]byte(content))
 		if err != nil {
-			logger.Error("write file error:", err.Error())
+			slog.Error("write file error:", err.Error())
 			return err
 		}
 		return nil
@@ -431,7 +431,7 @@ func (g *Gwi) zipHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = arc.Close()
 	if err != nil {
-		logger.Error("close file error:", err.Error())
+		slog.Error("close file error:", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
