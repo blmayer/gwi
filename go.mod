@@ -1,4 +1,4 @@
-module blmayer.dev/x/gwi
+module git.derelict.garden/myr/gwi
 
 go 1.19
 
