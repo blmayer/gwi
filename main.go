@@ -113,8 +113,6 @@ import (
 	"os"
 	"path"
 
-	"blmayer.dev/x/dovel/config"
-	dovel "blmayer.dev/x/dovel/interfaces/gwi"
 	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/gorilla/mux"
@@ -178,7 +176,6 @@ type Gwi struct {
 	pages     *template.Template
 	handler   *mux.Router
 	vault     Vault
-	mailer    dovel.GWIHandler
 	functions map[string]func(params ...any) any
 }
 
@@ -228,10 +225,6 @@ func NewFromConfig(cfg Config, vault Vault) (Gwi, error) {
 
 	// mail
 	var err error
-	gwi.mailer, err = dovel.NewGWIHandler(
-		config.InboxConfig{Root: cfg.Root},
-		nil,
-	)
 	if err != nil {
 		logger.Error("new mailer error", err.Error())
 	}
@@ -355,8 +348,6 @@ func (g *Gwi) MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	funcMap := map[string]any{
-		"threads": g.threads(info.User, info.Repo),
-		"mails":   g.mails(info.User, info.Repo),
 	}
 	pages := g.pages.Funcs(funcMap)
 

@@ -17,14 +17,7 @@ func Test_main(t *testing.T) {
 		Root:        "/home/blmayer/repos/gwi/git",
 	}
 
-	vault, err := NewFileVault("users.json", "----xxx----")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	t.Log(vault.Users)
-
-	g, err := NewFromConfig(cfg, vault)
+	g, err := NewFromConfig(cfg, nil)
 	if err != nil {
 		t.Error(err)
 		return

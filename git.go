@@ -52,10 +52,6 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		if !g.vault.Validate(login, pass) {
-			http.Error(w, "invalid login", http.StatusUnauthorized)
-			return
-		}
 		if user != login {
 			http.Error(w, "invalid repo", http.StatusUnauthorized)
 			return
@@ -94,6 +90,28 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error("session error:", err.Error())
 		http.Error(w, "session error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("Git-Protocol") == "version=2" {
+		caps, err := sess.AdvertisedCapabilities()
+		if err != nil {
+			logger.Error("caps error:", err.Error())
+			http.Error(w, "caps error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		caps.Capabilities.Add(capability.Agent, "git/gwi")
+		caps.Capabilities.Add(capability.Fetch, capability.Shallow.String(), capability.Filter.String(), capability.WaitForDone.String())
+		caps.Capabilities.Add(capability.LsRefs, "unborn")
+		caps.Capabilities.Add(capability.ObjectFormat, "sha1")
+		caps.Capabilities.Add(capability.ServerOption)
+
+		caps.Service = service
+		w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
+		if err := caps.Encode(w); err != nil {
+			logger.Error("encode caps", err.Error())
+			http.Error(w, "encode caps error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -229,6 +247,31 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.Header().Add("Accept-encoding", "identity,gzip")
 		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	if r.Header.Get("Git-Protocol") == "version=2" {
+		comm := packp.NewCommandRequest()
+		if err := comm.Decode(body); err != nil {
+			logger.Error("command decode", err.Error())
+			http.Error(w, "command decode: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Debug("request:", comm.Command, "caps:", comm.Capabilities, "args:", comm.Args)
+
+		res, err := sess.CommandHandler(r.Context(), comm)
+		if err != nil {
+			logger.Error("command", err.Error())
+			http.Error(w, "command: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		println("res is", res.Args)
+		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
+		err = res.Encode(w)
+		if err != nil {
+			logger.Error("command", err.Error())
+		}
 		return
 	}
 

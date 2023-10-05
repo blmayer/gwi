@@ -2,11 +2,8 @@ package gwi
 
 import (
 	"html/template"
-	"path"
-	"sort"
 	"syscall"
 
-	"blmayer.dev/x/dovel/interfaces"
 	"blmayer.dev/x/gwi/internal/logger"
 
 	"github.com/go-git/go-git/v5"
@@ -66,42 +63,6 @@ func wrap(res any, err error) any {
 	println(res)
 	println(err)
 	return res
-}
-
-func (g *Gwi) threads(user, repo string) func() []interfaces.Mailbox {
-	return func() []interfaces.Mailbox {
-		logger.Debug("getting threads for", user, repo)
-
-		mailPath := path.Join(user, repo, "mail")
-		threads, err := g.mailer.Mailboxes(mailPath)
-		if err != nil {
-			logger.Debug("threads error:", err.Error())
-			return nil
-		}
-
-		return threads
-	}
-}
-
-func (g *Gwi) mails(user, repo string) func(thread string) []interfaces.Email {
-	return func(thread string) []interfaces.Email {
-		logger.Debug("getting mail for", thread)
-
-		dir := path.Join(user, repo, "mail", thread)
-		mail, err := g.mailer.Mails(dir)
-		if err != nil {
-			logger.Error("read mail", err.Error())
-			return nil
-		}
-
-		sort.Slice(
-			mail,
-			func(i, j int) bool {
-				return mail[i].Date.Before(mail[j].Date)
-			},
-		)
-		return mail
-	}
 }
 
 func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
