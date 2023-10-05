@@ -2,13 +2,18 @@ package gwi
 
 import (
 	"net/http"
+	"os"
 	"testing"
 
 	"log/slog"
 )
 
 func Test_main(t *testing.T) {
-	slog.SetLevel(slog.DebugLevel)
+	hand := slog.NewTextHandler(
+		os.Stdout,
+		&slog.HandlerOptions{Level: slog.LevelDebug},
+	)
+	slog.SetDefault(slog.New(hand))
 
 	cfg := Config{
 		Domain:      "localhost",

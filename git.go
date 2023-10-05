@@ -33,7 +33,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	service := mux.Vars(r)["service"]
 	end, err := transport.NewEndpoint(user + "/" + repo)
 	if err != nil {
-		slog.Error("invalid URL", err.Error())
+		slog.Error("invalid URL", "error", err.Error())
 		http.Error(w, "invalid URL", http.StatusBadRequest)
 		return
 	}
@@ -61,7 +61,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		// create repo if it doesn't exists
 		repoDir := path.Join(g.config.Root, user, repo)
 		if _, err := os.Stat(repoDir); err != nil {
-			slog.Info("repo stat", err.Error(), "initializing repo")
+			slog.Info("repo stat", "error", err.Error())
 
 			os.Mkdir(repoDir, os.ModeDir|0o700)
 			r, err := git.PlainInit(repoDir, true)
@@ -88,7 +88,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		sess, err = gitServer.NewUploadPackSession(end, nil)
 	}
 	if err != nil {
-		slog.Error("session error:", err.Error())
+		slog.Error("session", "error", err.Error())
 		http.Error(w, "session error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -96,7 +96,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Git-Protocol") == "version=2" {
 		caps, err := sess.AdvertisedCapabilities()
 		if err != nil {
-			slog.Error("caps error:", err.Error())
+			slog.Error("caps", "error", err.Error())
 			http.Error(w, "caps error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -109,7 +109,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 		caps.Service = service
 		w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
 		if err := caps.Encode(w); err != nil {
-			slog.Error("encode caps", err.Error())
+			slog.Error("encode caps", "error", err.Error())
 			http.Error(w, "encode caps error", http.StatusInternalServerError)
 		}
 		return
@@ -117,7 +117,7 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 
 	refs, err := sess.AdvertisedReferences()
 	if err != nil {
-		slog.Error("refs", err.Error())
+		slog.Error("ref advertisement", "error", err.Error())
 		http.Error(w, "receive pack error", http.StatusBadRequest)
 		return
 	}
@@ -130,15 +130,15 @@ func (g *Gwi) infoRefsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-"+service+"-advertisement")
 	w.Header().Set("Accept-Encoding", "identity")
 	if err := refs.Encode(w); err != nil {
-		slog.Error("encode refs", err.Error())
+		slog.Error("encode refs", "error", err.Error())
 		http.Error(w, "encode refs error", http.StatusInternalServerError)
 		return
 	}
-	slog.Debug("sent", refs.References, *refs.Capabilities)
+	slog.Debug("sent", "refs", refs.References, "caps", *refs.Capabilities)
 }
 
 func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("git handling", r.Method, r.RequestURI)
+	slog.Debug("git handling", "method", r.Method, "uri", r.RequestURI)
 
 	login, pass, ok := r.BasicAuth()
 	user := mux.Vars(r)["user"]
@@ -160,13 +160,13 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
 	end, err := transport.NewEndpoint(user + "/" + repo)
 	if err != nil {
-		slog.Error("invalid URL", err.Error())
+		slog.Error("invalid URL", "error", err.Error())
 		http.Error(w, "invalid URL", http.StatusBadRequest)
 		return
 	}
 	sess, err := gitServer.NewReceivePackSession(end, nil)
 	if err != nil {
-		slog.Error("session", err.Error())
+		slog.Error("session", "error", err.Error())
 		http.Error(w, "session", http.StatusInternalServerError)
 		return
 	}
@@ -192,29 +192,29 @@ func (g *Gwi) receivePackHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
 
 	if err := upr.Decode(body); err != nil {
-		slog.Error("reference decode", err.Error())
+		slog.Error("reference decode", "error", err.Error())
 		http.Error(w, "reference decode: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	slog.Debug("request:", upr.Commands, *upr.Capabilities)
+	slog.Debug("request:", "commands", upr.Commands, "caps", *upr.Capabilities)
 
 	res, err := sess.ReceivePack(r.Context(), upr)
 	if err != nil {
-		slog.Error("receive pack", err.Error())
+		slog.Error("receive pack", "error", err.Error())
 		http.Error(w, "receive pack: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
 	if err := res.Encode(w); err != nil {
-		slog.Error("encode response", err.Error())
+		slog.Error("encode response", "error", err.Error())
 		http.Error(w, "encode response", http.StatusInternalServerError)
 	}
-	slog.Debug("sent", *res, res.CommandStatuses)
+	slog.Debug("sent", "response", *res, "status", res.CommandStatuses)
 }
 
 func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("git handling", r.Method, r.RequestURI)
+	slog.Debug("git handling", "method", r.Method, "uri", r.RequestURI)
 
 	user := mux.Vars(r)["user"]
 	repo := mux.Vars(r)["repo"]
@@ -222,13 +222,13 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	gitServer := server.NewServer(server.NewFilesystemLoader(osfs.New(g.config.Root)))
 	end, err := transport.NewEndpoint(user + "/" + repo)
 	if err != nil {
-		slog.Error("invalid URL", err.Error())
+		slog.Error("invalid URL", "error", err.Error())
 		http.Error(w, "invalid URL", http.StatusBadRequest)
 		return
 	}
 	sess, err := gitServer.NewUploadPackSession(end, nil)
 	if err != nil {
-		slog.Error("session", err.Error())
+		slog.Error("session", "error", err.Error())
 		http.Error(w, "session", http.StatusInternalServerError)
 		return
 	}
@@ -253,58 +253,57 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Git-Protocol") == "version=2" {
 		comm := packp.NewCommandRequest()
 		if err := comm.Decode(body); err != nil {
-			slog.Error("command decode", err.Error())
+			slog.Error("command decode", "error", err.Error())
 			http.Error(w, "command decode: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		slog.Debug("request:", comm.Command, "caps:", comm.Capabilities, "args:", comm.Args)
+		slog.Debug("v2 request", "command", comm.Command, "caps:", comm.Capabilities, "args:", comm.Args)
 
 		res, err := sess.CommandHandler(r.Context(), comm)
 		if err != nil {
-			slog.Error("command", err.Error())
+			slog.Error("command", "error", err.Error())
 			http.Error(w, "command: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		println("res is", res.Args)
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 		err = res.Encode(w)
 		if err != nil {
-			slog.Error("command", err.Error())
+			slog.Error("command", "error", err.Error())
 		}
 		return
 	}
 
 	upr := packp.NewUploadPackRequest()
 	if err := upr.Decode(body); err != nil {
-		slog.Error("upload decode", err.Error())
+		slog.Error("upload decode", "error", err.Error())
 		http.Error(w, "upload decode: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	slog.Debug("request:", upr.Wants, upr.Haves, *upr.Capabilities)
+	slog.Debug("request", "wants", upr.Wants, "haves", upr.Haves, "caps", *upr.Capabilities)
 
 	res, err := sess.UploadPack(r.Context(), upr)
 	if err != nil {
-		slog.Error("upload pack", err.Error())
+		slog.Error("upload pack", "error", err.Error())
 		http.Error(w, "upload pack: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	slog.Debug("response:", res.ACKs, res.ServerResponse.ACKs)
+	slog.Debug("response", "acks", res.ACKs, "serverAcks", res.ServerResponse.ACKs)
 
 	buff := bytes.Buffer{}
 	if err := res.Encode(&buff); err != nil {
-		slog.Error("encode response", err.Error())
+		slog.Error("encode response", "error", err.Error())
 		http.Error(w, "encode response", http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 	w.Write(buff.Bytes())
 
-	slog.Debug("sent", res.ServerResponse, res.ACKs)
+	slog.Debug("sent", "response", res.ServerResponse, "acks", res.ACKs)
 }
 
 func (g *Gwi) headHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("git handling", r.Method, r.RequestURI)
+	slog.Debug("git handling", "method", r.Method, "uri", r.RequestURI)
 
 	vars := mux.Vars(r)
 	repoDir := path.Join(g.config.Root, vars["user"], vars["repo"])
@@ -315,7 +314,7 @@ func (g *Gwi) headHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Gwi) fileHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("git handling", r.Method, r.RequestURI)
+	slog.Debug("git handling", "method", r.Method, "uri", r.RequestURI)
 
 	vars := mux.Vars(r)
 	repoDir := path.Join(g.config.Root, vars["user"], vars["repo"])
@@ -339,7 +338,7 @@ func (g *Gwi) fileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Gwi) objHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("git handling object", r.Method, r.RequestURI)
+	slog.Debug("git handling object", "method", r.Method, "uri", r.RequestURI)
 
 	vars := mux.Vars(r)
 	repoDir := path.Join(g.config.Root, vars["user"], vars["repo"])

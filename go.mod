@@ -1,6 +1,6 @@
 module git.derelict.garden/myr/gwi
 
-go 1.19
+go 1.21
 
 replace github.com/go-git/go-git/v5 => ../go-git
 

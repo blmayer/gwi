@@ -67,21 +67,21 @@ func wrap(res any, err error) any {
 
 func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 	return func(ref plumbing.Hash) string {
-		slog.Debug("getting desc for ref", ref.String())
+		slog.Debug("getting desc", "ref", ref.String())
 		commit, err := repo.CommitObject(ref)
 		if err != nil {
-			slog.Error("commitObject error:", err.Error())
+			slog.Error("commitObject", "error", err.Error())
 			return ""
 		}
 
 		tree, err := commit.Tree()
 		if err != nil {
-			slog.Error("tree error:", err.Error())
+			slog.Error("tree", "error", err.Error())
 			return ""
 		}
 		descFile, err := tree.File("DESC")
 		if err != nil && err != object.ErrFileNotFound {
-			slog.Error("descFile error:", err.Error())
+			slog.Error("descFile", "error", err.Error())
 			return ""
 		}
 		if err == object.ErrFileNotFound {
@@ -90,7 +90,7 @@ func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 
 		content, err := descFile.Contents()
 		if err != nil {
-			slog.Error("contents error:", err.Error())
+			slog.Error("contents", "error", err.Error())
 			return ""
 		}
 
@@ -100,10 +100,10 @@ func (g *Gwi) desc(repo *git.Repository) func(ref plumbing.Hash) string {
 
 func (g *Gwi) branches(repo *git.Repository) func(ref plumbing.Hash) []*plumbing.Reference {
 	return func(ref plumbing.Hash) []*plumbing.Reference {
-		slog.Debug("getting branches for ref", ref.String())
+		slog.Debug("getting branches", "ref", ref.String())
 		brs, err := repo.Branches()
 		if err != nil {
-			slog.Error("branches error:", err.Error())
+			slog.Error("branches", "error", err.Error())
 			return nil
 		}
 
@@ -121,7 +121,7 @@ func (g *Gwi) tags(repo *git.Repository) func() []*plumbing.Reference {
 		slog.Debug("getting tags")
 		tgs, err := repo.Tags()
 		if err != nil {
-			slog.Error("tags error:", err.Error())
+			slog.Error("tags", "error", err.Error())
 			return nil
 		}
 
