@@ -257,7 +257,7 @@ func (g *Gwi) uploadPackHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "command decode: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		slog.Debug("v2 request", "command", comm.Command, "caps:", comm.Capabilities, "args:", comm.Args)
+		slog.Debug("v2 request", "command", comm.Command, "caps", comm.Capabilities, "args", comm.Args)
 
 		res, err := sess.CommandHandler(r.Context(), comm)
 		if err != nil {
